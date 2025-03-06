@@ -32,7 +32,7 @@ def spontaneous_magnetization(
 
 def find_line_val_dict(fileName, valname, verbose=False):
     """
-    Find all lines in lines (list) with valname (string) and
+    Find last line in lines (list) with valname (string) and
     return a dict of IDs and valuse coming after valname
     """
     # Check if file exists
@@ -45,16 +45,17 @@ def find_line_val_dict(fileName, valname, verbose=False):
     if verbose:
         print(lines)
 
-    alllineswithvalname = {}
+    last_lines_with_valname = {}
     for line in lines:
         if valname in line:
             if verbose:
                 print(line)
             pos = line.find(valname) + len(valname)
+            # TODO: check if part of the line can be converted to float; introduce boundaries in which the value should be
             key, value = line.split()[0], [float(x)
                                            for x in line[pos:].split()]
-            alllineswithvalname[key] = value
-    return alllineswithvalname
+            last_lines_with_valname[key] = value
+    return last_lines_with_valname
 
 
 def get_energy_from_file(fileName):
