@@ -61,6 +61,15 @@ def check_out_last_file_exists(folder_path, verbose=True):
 
 
 def check_structure(folder_path, check_README=False, check_subfolders=True, check_structure_cif=True, check_out_last_files=True, verbose=True):
+    
+    main_folder_exists = False
+    readme_exists = False
+    subfolders_exist = False
+    structure_cif_exists = False
+    out_last_x_exists = False
+    out_last_y_exists = False
+    out_last_z_exists = False
+    
     if not os.path.isdir(folder_path):
         if verbose:
             print(
