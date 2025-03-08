@@ -20,6 +20,9 @@ def check_subfolders_exist(folder_path, check_optional_subf=True, verbose='on'):
     
     mandatory_exist = []
     non_mandatory_exist = []
+    
+    if verbose in ['debug']:
+        print("# In check_subfolders_exist function.")
 
     for subfolder in mandatory_subfolders:
         subfolder_path = os.path.join(folder_path, subfolder)
@@ -36,14 +39,20 @@ def check_subfolders_exist(folder_path, check_optional_subf=True, verbose='on'):
             subfolder_path = os.path.join(folder_path, subfolder)
             if os.path.isdir(subfolder_path):
                 if verbose in ['on', 'debug']:
-                    print(f"Non-mandatory subfolder '{subfolder}' exists.")
+                    print(f"Optional subfolder '{subfolder}' exists.")
                 non_mandatory_exist.append(True)
             else:
                 if verbose in ['on', 'debug']:
-                    print(f"Non-mandatory subfolder '{subfolder}' does not exist in the folder '{folder_path}'.")
+                    print(f"Optional subfolder '{subfolder}' does not exist in the folder '{folder_path}'.")
                 non_mandatory_exist.append(False)
-
-    return all(mandatory_exist), all(non_mandatory_exist)
+    else:
+        non_mandatory_exist = [None] * len(non_mandatory_subfolders)
+        if verbose in ['on', 'debug']:
+            print("Optional subfolders are not checked.")
+        if verbose in ['debug']:
+            print("non_mandatory_exist: ", non_mandatory_exist)
+        
+    return all(mandatory_exist), non_mandatory_exist
 
 
 def check_structure_cif_file_exists(folder_path, verbose='on'):
@@ -71,6 +80,9 @@ def check_out_last_file_exists(folder_path, verbose='on'):
 
 
 def check_structure(folder_path, check_subfolders=True, check_optional_subf=True, check_README=False, check_structure_cif=True, check_out_last_files=True, verbose='on'):
+    
+    if verbose in ['debug']:
+        print("# In check_structure function.")
     main_folder_exists = False
     readme_exists = False
     mandatory_subfolders_exist = False
@@ -93,6 +105,9 @@ def check_structure(folder_path, check_subfolders=True, check_optional_subf=True
             readme_exists = check_readme_exists(folder_path, verbose)
         if check_subfolders:
             mandatory_subfolders_exist, optional_subfolders_exist = check_subfolders_exist(folder_path, check_optional_subf, verbose)
+            if verbose in ['debug']:
+                print(f"Mandatory subfolders exist: {mandatory_subfolders_exist}")
+                print(f"Optional subfolders exist: {optional_subfolders_exist}")
             if mandatory_subfolders_exist:
                 if check_out_last_files:
                     out_last_x_exists = check_out_last_file_exists(folder_path+'/GS/x', verbose)
@@ -109,14 +124,19 @@ def check_structure(folder_path, check_subfolders=True, check_optional_subf=True
             print(f"All return values: {return_values}")
         
         if all(return_values):
-            if optional_subfolders_exist:
+            if optional_subfolders_exist == [True] * len(optional_subfolders_exist):
                 if verbose in ['on', 'debug']:
                     print("## Optional subfolders exist.")
                     if out_last_y_exists:
                         print("## Optional out_last_y file exists.")
-            else:
-                if verbose in ['on', 'debug']:
-                    print("## Optional subfolders do not exist.") 
+            else: 
+                if optional_subfolders_exist == [False] * len(optional_subfolders_exist):
+                    if verbose in ['on', 'debug']:
+                        print("## Optional subfolders do not exist.") 
+                else:
+                    if optional_subfolders_exist == [None] * len(optional_subfolders_exist):
+                        if verbose in ['on', 'debug']:
+                            print("## Optional subfolders are not checked.")
             if verbose in ['off', 'on', 'debug']:
                 print("# All checks passed.")
             return True
