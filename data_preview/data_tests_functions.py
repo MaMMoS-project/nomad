@@ -17,7 +17,11 @@ def read_2_col_data(filename):
     of the data in the file.
 
     """
-    alldata = np.loadtxt(filename)
+    
+    try:
+        alldata = np.loadtxt(filename)
+    except ValueError:
+        alldata = np.loadtxt(filename, skiprows=1)
     return alldata[:, 0], alldata[:, 1]
 
 
