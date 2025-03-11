@@ -30,6 +30,7 @@ def round_to_significant_digits(value, sig_digits):
 
 data_dirs = []
 positive_datasets = {}
+structure_check_datasets = {}
 # data_dir = '/Users/santapile/Santas/Projects/MaMMoS/NOMAD/dataExamples/UU/UU-sets/Fe3-xZnxY(x=0.22)'
 
 data_dirs.append('Co2Fe2H4')
@@ -40,7 +41,7 @@ data_dirs.append('Fe3-xZnxY(x=0.22)')
 
 for data_dir in data_dirs:
     import check_file_and_folder_structure as cffs
-    cffs.check_structure(data_dir, check_README=True, verbose=True)
+    structure_check_datasets[data_dir] = cffs.check_structure(data_dir, check_README=True, verbose=True)
 
     data_dir_GS = data_dir + "/GS"
     data_dir_MC = data_dir + "/MC"
@@ -253,7 +254,16 @@ for data_dir in data_dirs:
     else:
         print('The deviation for magnetization and anisotropy in dataset '+data_dir+' is\n **more** than 2% compared to the provided values.')
         positive_datasets[data_dir] = False
-        
+
+if all(structure_check_datasets.values()):
+    print('\n# The structure of all datasets is correct.')
+else:
+    print('\n# The structure of some datasets is incorrect.')
+    print('Datasets with incorrect structure:')
+    for data_dir, is_correct in structure_check_datasets.items():
+        if not is_correct:
+            print(data_dir)
+       
 if all(positive_datasets.values()):
     print('\n# The results for all datasets are within the specified boundaries.')
 else:
