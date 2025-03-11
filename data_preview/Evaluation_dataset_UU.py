@@ -27,6 +27,171 @@ def round_to_significant_digits(value, sig_digits):
     value_rounded = round(value, digits)
     return value_rounded
 
+def get_unit_cell_volume(file_name):
+    """
+    Extracts the unit cell volume from the given file.
+    :param file_name: The name of the file to extract the unit cell volume from.
+    :return: The unit cell volume in cubic angstroms (A^3).
+    """
+    ucv = dtf.find_line_val_dict(file_name, 'unit cell volume:')
+    ucvA = ucv[list(ucv.keys())[0]][0] / 1.8897259**3  # unit cell volume in A^3
+    return ucvA
+
+def compute_magnetization(tot_moments_D, dir_of_JD, file_Name_Ms):
+        # Calculating total magnetic moment by summing all
+        # (Total moment (of an orbital) * Direction of J (takes the one with abs value > 0.9, should be +/-1))
+        tot_magn_mom_C = 0
+        for key in tot_moments_D.keys():
+            tot_magn_mom_C += tot_moments_D[key][0]*[x for x in dir_of_JD[key] if abs(x) > 0.9][0]
+            print(key, ': ', tot_moments_D[key][0], '*', 
+                [x for x in dir_of_JD[key] if abs(x) > 0.9][0], '=', 
+                tot_moments_D[key][0]*[x for x in dir_of_JD[key] if abs(x) > 0.9][0])
+            #    total magnetic moment J=L+S * orientation, wherever +/-1 is
+
+        print(f'\nTotal magnetic moment = {tot_magn_mom_C}')
+
+        # Getting unit cell volume in A^3 from the file
+        ucvA = get_unit_cell_volume(file_Name_Ms)
+        print(f'Unit cell volume: {ucvA} A\N{SUPERSCRIPT THREE}')
+
+        # Calculating magnetization in Tesla
+        magnetization_in_T = tot_magn_mom_C/ucvA*11.654
+
+        return magnetization_in_T, ucvA
+
+def compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA):
+    energies = {}
+
+    if f'out_MF_{xyz_dirs[0]}' in os.listdir(data_dir_GS+f'/{xyz_dirs[0]}'):
+        for dirdir in xyz_dirs:
+            fileName = data_dir_GS+f"/{dirdir}/out_MF_{dirdir}"
+            eigenvalue_sum = dtf.find_line_val_dict(fileName, 'Eigenvalue sum:')
+            energies[dirdir] = eigenvalue_sum[list(eigenvalue_sum.keys())[0]][0]
+    elif f'out_Etot_{xyz_dirs[0]}' in os.listdir(data_dir_GS+f'/{xyz_dirs[0]}'):
+        for dirdir in xyz_dirs:
+            fileName = data_dir_GS+f"/{dirdir}/out_Etot_{dirdir}"
+            energies[dirdir] = dtf.get_energy_from_file(fileName)
+    else:
+        print('no files for anisotropy')
+
+    allKs = list()
+    if 'z' in energies.keys():
+        if 'x' in energies.keys():
+            Kxz = (energies['x'] - energies['z'])/ucvA*2179874
+            allKs.append(Kxz)
+        if 'y' in energies.keys():    
+            Kyz = (energies['y'] - energies['z'])/ucvA*2179874
+            allKs.append(Kyz)
+
+    K1_in_JPerCubibm = max(allKs) * 1e6            # anisotropy J/m³; MagnetocrystallineAnisotropyConstantK1
+    return K1_in_JPerCubibm
+
+def extract_values_from_readme(data_dir):
+    import re
+
+    with open(data_dir + '/README', 'rt') as f:
+        readme_content = f.read()
+
+    ms_match = re.search(r'Ms\s*=\s*([\d.]+)\s*T', readme_content)
+    if ms_match:
+        Ms_README_in_T = float(ms_match.group(1))
+        print(f"Extracted Ms value from README: {Ms_README_in_T} T")
+    else:
+        print("Ms value not found in README")
+        Ms_README_in_T = None
+
+    mae_matches = re.findall(r'([xyz])\s*-\s*([xyz])\s*=\s*([-+]?\d*\.\d+|\d+)\s*MJ/m³', readme_content)
+    if mae_matches:
+        mae_values_in_MJPerCubicm = [float(match[2]) for match in mae_matches]
+        max_MAE_README_in_MJPerCubicm = max(mae_values_in_MJPerCubicm)
+        print(f"Extracted maximum MAE value from README: {max_MAE_README_in_MJPerCubicm} MJ/m³")
+    else:
+        mae_match = re.search(r'MAE\s*=\s*([\d.]+)\s*MJ/m³', readme_content)
+        if mae_match:
+            max_MAE_README_in_MJPerCubicm = float(mae_match.group(1))
+            print(f"Extracted MAE value from README: {max_MAE_README_in_MJPerCubicm} MJ/m³")
+        else:
+            print("MAE values not found in README")
+            max_MAE_README_in_MJPerCubicm = None
+
+    return Ms_README_in_T, max_MAE_README_in_MJPerCubicm
+
+def compute_exchange_and_anisotropy_constants(data_dir_MC, K1_in_JPerCubibm, ucvA, plot_Js=True):
+        
+    # Define the form of the function you want to fit
+    fn = data_dir_MC + '/M(T)'  # magnetic polarization
+    TK, Js = dtf.read_2_col_data(fn)
+    print(TK)
+
+    mc_dirs = [dirdir for dirdir in os.listdir(data_dir_MC) if dirdir in ['momfile', 'posfile']]
+
+    if len(mc_dirs) > 0:
+        with open(data_dir_MC + '/' + mc_dirs[0], 'rt') as f:
+            n_atoms = len(f.read().splitlines())
+        print(f'Number of atoms: {n_atoms}')
+    else:
+        print('There seem to be NO momfile and no posfile :( Getting n_atoms from GS/out_last')
+        atoms_Ns = set([int(key[key.find(':') + 1:key.find(':') + 3]) for key in tot_moments_D.keys()])
+        n_atoms = len(atoms_Ns)
+    print(f'Number of atoms: {n_atoms}')
+
+    Js = [item * n_atoms / ucvA * 11.654 for item in Js]
+
+    poscut = np.argmin(np.diff(Js) / np.diff(TK)) + 2
+    Tc = TK[poscut]
+    print(f'Tc = {Tc} K')
+    TKc = TK[:poscut].copy()
+    Jsc = Js[:poscut].copy()
+
+    xfine = np.linspace(0, Tc, 500)
+    p = 5.0 / 2
+    beta = 1. / 3
+    m_s = partial(dtf.spontaneous_magnetization, p=p, beta=beta, T_C=Tc)
+
+    popt, pcov = curve_fit(m_s, TKc, Jsc)
+    Js_0, s = popt
+    print(Js_0, s)
+    # T_fit = np.linspace(min(TKc), max(TKc), 500)
+    # Js_fit = m_s(T_fit, Js_0, s)
+    
+    g = 2
+    k_b = physical_constants["Boltzmann constant"][0]
+    mu_b = physical_constants["Bohr magneton"][0]
+
+    M_0 = Js_0 / mu_0
+    D = (0.1509
+            * ((g * mu_b) / (s * beta * M_0)) ** (2. / 3)
+            * k_b
+            * Tc
+            )
+    print("Spin wave stiffness constant ", D)
+    A_0 = M_0 * D / (2 * g * mu_b)
+    print("Exchange constant A at T=0 (J/m) : ", A_0)
+
+    # Magnetic polarization at 300 K
+    Js_300 = m_s(300., Js_0, s)
+    print("Js_300 (T) :", Js_300)
+
+    A_300 = A_0 * (Js_300 / Js_0) ** 2
+    print("A_300 (J/m) :", A_300)
+
+    K_300 = K1_in_JPerCubibm * (Js_300 / Js_0) ** 3
+    print("K_300 (MJ/m^3) :", K_300 / 1e6)
+
+    # exchange length in nm
+    print('Lex ', np.sqrt(mu_0 * A_300 / (Js_300 * Js_300)) / 1e-9)
+    
+    if plot_Js:
+        fig, ax = plt.subplots()
+        ax.scatter(TK, Js, marker="o", label="data points", facecolors='none', edgecolors='#4575b4')
+        label = "Kuz'min's fit"
+        ax.plot(xfine, m_s(xfine, Js_0, s), label=label, color='#f46d43')
+        ax.legend()
+        ax.set_xlabel("Temperature (K)")
+        ax.set_ylabel("Magnetic polarization J (T)")
+        ax.grid()
+
+    return A_0, A_300, K_300, Js_300
 
 data_dirs = []
 positive_datasets = {}
@@ -62,174 +227,31 @@ for data_dir in data_dirs:
     dir_of_JD = dtf.find_line_val_dict(file_Name_Ms, 'Direction of J (Cartesian):')
     # print("tot_moments_D:"+str(tot_moments_D))
     # print("dir_of_JD:"+str(dir_of_JD))
-    params_merged = {}
-    for key in tot_moments_D.keys():
-        params_merged[key] = tot_moments_D[key] + dir_of_JD[key]
+    
+    # params_merged = {}
+    # for key in tot_moments_D.keys():
+    #     params_merged[key] = tot_moments_D[key] + dir_of_JD[key]
 
-    # Pretty table for checking the entries for magnetic moments and directions
-    df = pd.DataFrame.from_dict(params_merged, orient='index',
-                                columns = ['J=L+S (Cartesian)',
-                                        'J=L+S (Spin axis)',
-                                        'Direction of J (x)',
-                                        'Direction of J (y)',
-                                        'Direction of J (z)'])
-    df
+    # # Pretty table for checking the entries for magnetic moments and directions
+    # df = pd.DataFrame.from_dict(params_merged, orient='index',
+    #                             columns = ['J=L+S (Cartesian)',
+    #                                     'J=L+S (Spin axis)',
+    #                                     'Direction of J (x)',
+    #                                     'Direction of J (y)',
+    #                                     'Direction of J (z)'])
+    # df
 
-    # Calculating total magnetic moment by summing all
-    # (Total moment (of an orbital) * Direction of J (takes the one with abs value > 0.9, should be +/-1))
-    tot_magn_mom_C = 0
-    for key in tot_moments_D.keys():
-        tot_magn_mom_C += tot_moments_D[key][0]*[x for x in dir_of_JD[key] if abs(x) > 0.9][0]
-        print(key, ': ', tot_moments_D[key][0], '*', 
-            [x for x in dir_of_JD[key] if abs(x) > 0.9][0], '=', 
-            tot_moments_D[key][0]*[x for x in dir_of_JD[key] if abs(x) > 0.9][0])
-        #    total magnetic moment J=L+S * orientation, wherever +/-1 is
+    
 
-    print(f'\nTotal magnetic moment = {tot_magn_mom_C}')
+    magnetization_in_T, ucvA = compute_magnetization(tot_moments_D, dir_of_JD, file_Name_Ms)
+    #print(f'Magnetization Ms: {magnetization_in_T} T')
 
-    # Getting unit cell volume in A^3 from the file
-    ucv = dtf.find_line_val_dict(file_Name_Ms, 'unit cell volume:')
-    print(ucv)
-    # Recalculating in=t in angstroms (should be transferred to m afterwards)
-    ucvA = ucv[list(ucv.keys())[0]][0] / 1.8897259**3 # unit cell volume in A
-    print(f'Unit cell volume: {ucvA} A\N{SUPERSCRIPT THREE}')
-
-    # Calculating magnetization in Tesla
-    magnetization_in_T = tot_magn_mom_C/ucvA*11.654
-    print(f'Magnetization Ms: {magnetization_in_T} T')
-
-    energies = {}
-
-    if f'out_MF_{xyz_dirs[0]}' in os.listdir(data_dir_GS+f'/{xyz_dirs[0]}'):
-        for dirdir in xyz_dirs:
-            fileName = data_dir_GS+f"/{dirdir}/out_MF_{dirdir}"
-            eigenvalue_sum = dtf.find_line_val_dict(fileName, 'Eigenvalue sum:')
-            energies[dirdir] = eigenvalue_sum[list(eigenvalue_sum.keys())[0]][0]
-    elif f'out_Etot_{xyz_dirs[0]}' in os.listdir(data_dir_GS+f'/{xyz_dirs[0]}'):
-        for dirdir in xyz_dirs:
-            fileName = data_dir_GS+f"/{dirdir}/out_Etot_{dirdir}"
-            energies[dirdir] = dtf.get_energy_from_file(fileName)
-    else:
-        print('no files for anisotropy')
-
-    allKs = list()
-    if 'z' in energies.keys():
-        if 'x' in energies.keys():
-            Kxz = (energies['x'] - energies['z'])/ucvA*2179874
-            allKs.append(Kxz)
-        if 'y' in energies.keys():    
-            Kyz = (energies['y'] - energies['z'])/ucvA*2179874
-            allKs.append(Kyz)
-
-    K1_in_JPerCubibm = max(allKs) * 1e6            # anisotropy J/m³; MagnetocrystallineAnisotropyConstantK1
-
+    K1_in_JPerCubibm = compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA)
     print(f'Anisotropy constant (max of all): {K1_in_JPerCubibm} J/m\N{SUPERSCRIPT THREE}')
 
-    # Define the form of the function you want to fit
-    fn = data_dir_MC + '/M(T)'  # magnetic polarization
-    TK, Js = dtf.read_2_col_data(fn)
-    print(TK)
+    A_0, A_300, K_300, Js_300 = compute_exchange_and_anisotropy_constants(data_dir_MC, K1_in_JPerCubibm, ucvA, plot_Js=True)
 
-    mc_dirs = [dirdir for dirdir in os.listdir(data_dir_MC) if dirdir in ['momfile', 'posfile']]
-
-    if len(mc_dirs) > 0:
-        with open(data_dir_MC + '/' + mc_dirs[0], 'rt') as f:
-            n_atoms = len(f.read().splitlines())
-        print(f'Number of atoms: {n_atoms}')
-    else:
-        print('There seem to be NO momfile and no posfile :( Getting n_atoms from GS/out_last')
-        atoms_Ns = set([int(key[key.find(':')+1:key.find(':') + 3]) for key in tot_moments_D.keys()])
-        n_atoms = len(atoms_Ns)
-    print(f'Number of atoms: {n_atoms}')
-        
-    Js = [item*n_atoms/ucvA*11.654 for item in Js]
-
-    poscut = np.argmin(np.diff(Js)/np.diff(TK))+2
-    Tc = TK[poscut]
-    print(f'Tc = {Tc} K')
-    TKc = TK[:poscut].copy()
-    Jsc = Js[:poscut].copy()
-
-    xfine = np.linspace(0, Tc, 500)
-    p    = 5.0 / 2
-    beta = 1. / 3
-    m_s = partial(dtf.spontaneous_magnetization, p=p, beta=beta, T_C=Tc)
-
-    popt, pcov = curve_fit(m_s, TKc, Jsc)
-    Js_0, s = popt
-    print(Js_0, s)
-    T_fit = np.linspace(min(TKc), max(TKc), 500)
-    Js_fit = m_s(T_fit, Js_0, s)
-
-    g = 2
-    k_b = physical_constants["Boltzmann constant"][0]
-    mu_b = physical_constants["Bohr magneton"][0]
-
-    M_0 = Js_0/mu_0
-    D = (0.1509
-        * ((g * mu_b) / (s * beta * M_0)) ** (2. / 3)
-        * k_b
-        * Tc
-        )
-    print("Spin wave stiffness constant ", D)
-    A_0 = M_0 * D / (2 * g * mu_b)
-    print("Exchange constant A at T=0 (J/m) : ", A_0)
-
-    # Magnetic polarization at 300 K
-    Js_300 = m_s(300., Js_0, s)
-    print("Js_300 (T) :", Js_300)
-
-    A_300 = A_0*(Js_300/Js_0)**2
-    print("A_300 (J/m) :", A_300)
-
-    K_300 = K1_in_JPerCubibm*(Js_300/Js_0)**3
-    print("K_300 (MJ/m^3) :", K_300/1e6)
-
-    # A = A_0*(Js/Js0)^2
-
-    # exchange length in nm; see eq. 96 in book chapter of Exl2016 etal. where for Ms = spontaneous magnetization since there is only one phase/material
-    print('Lex ', np.sqrt(mu_0*A_300/(Js_300*Js_300))/1e-9)
-
-    fig, ax = plt.subplots()
-    ax.scatter(TK, Js, marker="o", label="data points", facecolors='none', edgecolors='#4575b4')
-    label = "Kuz'min's fit"
-    ax.plot(xfine, m_s(xfine, Js_0, s), label=label, color='#f46d43')
-    ax.legend()
-    ax.set_xlabel("Temperature (K)")
-    ax.set_ylabel("Magnetic polarization J (T)")
-    ax.grid()
-
-    import re
-
-    # Ms - Ontology entry: SpontaneousMagneticPolarisation when given in T
-    # MAE - Ontology entry: MagnetocrystallineAnisotropyEnergy
-    with open(data_dir + '/README', 'rt') as f:
-        print("### README:")
-        print(f.read())
-        print("### End of README\n")
-        # Extract the value for Ms from README
-        with open(data_dir + '/README', 'rt') as f:
-            readme_content = f.read()
-
-        ms_match = re.search(r'Ms\s*=\s*([\d.]+)\s*T', readme_content)
-        if ms_match:
-            Ms_README_in_T = float(ms_match.group(1))
-            print(f"Extracted Ms value from README: {Ms_README_in_T} T")
-        else:
-            print("Ms value not found in README")
-
-        mae_matches = re.findall(r'([xyz])\s*-\s*([xyz])\s*=\s*([-+]?\d*\.\d+|\d+)\s*MJ/m³', readme_content)
-        if mae_matches:
-            mae_values_in_MJPerCubicm = [float(match[2]) for match in mae_matches]
-            max_MAE_README_in_MJPerCubicm = max(mae_values_in_MJPerCubicm)
-            print(f"Extracted maximum MAE value from README: {max_MAE_README_in_MJPerCubicm} MJ/m³")
-        else:
-            mae_match = re.search(r'MAE\s*=\s*([\d.]+)\s*MJ/m³', readme_content)
-            if mae_match:
-                max_MAE_README_in_MJPerCubicm = float(mae_match.group(1))
-                print(f"Extracted MAE value from README: {max_MAE_README_in_MJPerCubicm} MJ/m³")
-            else:
-                print("MAE values not found in README")
+    Ms_README_in_T, max_MAE_README_in_MJPerCubicm = extract_values_from_readme(data_dir)
 
     MAE_in_MJPerCubicm = K1_in_JPerCubibm /1e6
 
