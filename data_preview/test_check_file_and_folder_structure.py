@@ -11,7 +11,7 @@ from check_file_and_folder_structure import (
 class TestCheckFileAndFolderStructure(unittest.TestCase):
 
     def setUp(self):
-        self.datasets = ['Co2Fe2H4', 'Co2Fe16Y6', 'Fe3-xVxY(x=0.22)']
+        self.datasets = ['Co2Fe16Y6', 'Fe3-xTaxY(x=0.22)', 'Fe3-xVxY(x=0.22)', 'Fe3-xZnxY(x=0.22)'] 
 
     def test_check_readme_exists(self):
         all_results_true = []
