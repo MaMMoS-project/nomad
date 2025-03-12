@@ -96,7 +96,7 @@ def check_posfile_file_exists(folder_path, verbose='on'):
                 f"File 'posfile' does not exist in the folder '{folder_path}'.")
         return False
 
-
+# TODO: check is jfile needed anyhow
 def check_jfile_file_exists(folder_path, verbose='on'):
     jfile_file_path = os.path.join(folder_path, 'jfile')
     if os.path.isfile(jfile_file_path):
@@ -180,16 +180,16 @@ def check_structure(
                 momfile_exists = check_momfile_file_exists(
                     folder_path+'/MC', verbose)
 
-                if (posfile_exists or jfile_exists or momfile_exists):
+                if (posfile_exists or momfile_exists):
                     if verbose in ['on', 'debug']:
                         print(
                             f"Files 'posfile', 'jfile', or 'momfile' exist in the folder '{folder_path}/MC'.")
-                    mom_j_pos_file_exists = True
+                    mom_pos_file_exists = True
                 else:
                     if verbose in ['on', 'debug']:
                         print(
                             f"None of the files 'posfile', 'jfile', or 'momfile' exist in the folder '{folder_path}/MC'.")
-                    mom_j_pos_file_exists = False
+                    mom_pos_file_exists = False
 
             if optional_subfolders_exist and check_optional_subf:
                 if check_out_last_files:
@@ -201,7 +201,7 @@ def check_structure(
 
         return_values = [main_folder_exists, readme_exists, mandatory_subfolders_exist,
                          structure_cif_exists, out_last_x_exists, out_last_z_exists,
-                         mom_j_pos_file_exists]
+                         mom_pos_file_exists]
 
         if verbose == 'debug':
             print(f"All return values: {return_values}")
