@@ -1,0 +1,12 @@
+[project]
+channels = ["conda-forge"]
+description = "Add a short description here"
+name = "pixiTestH5"
+platforms = ["osx-arm64", "linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.13.3,<3.14"
+h5py = ">=3.13.0,<4"
