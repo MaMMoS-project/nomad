@@ -1,0 +1,40 @@
+definitions:
+  name: 'hdf5'
+
+  sections:
+  
+    UUSimu:
+      base_sections:
+        - 'nomad.datamodel.data.EntryData'
+        - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
+      quantities:
+        datafile:
+          default: output_Co2Fe16Y6.h5
+          type: str
+          m_annotations:
+            eln:
+              component: FileEditQuantity
+        # composition: 
+        #   type: str
+        #   shape: ['*']
+        #   m_annotations:
+        #     hdf5:
+        #       path: '/results/composition'
+        Js:
+          type: np.float32
+          shape: ['*']
+          unit: T
+          m_annotations:
+            hdf5:
+              path: '/results/Js'
+        K1:
+          type: np.float32
+          shape: ['*']
+          unit: J/m^3
+          defaultDisplayUnit: "J/m^3"
+          m_annotations:
+            hdf5:
+              path: '/results/K1'
+data:
+  m_def: UUSimu
+  datafile: 'output_Co2Fe16Y6.h5'
