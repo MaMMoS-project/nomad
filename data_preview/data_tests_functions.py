@@ -15,6 +15,8 @@ from scipy.constants import mu_0
 from scipy.constants import physical_constants
 import matplotlib
 import matplotlib.pyplot as plt
+import check_file_and_folder_structure as cffs
+
 
 matplotlib.rcParams.update({"font.size": 14})
 
@@ -167,9 +169,9 @@ def compute_magnetization(tot_moments_D, dir_of_JD, file_Name_Ms):
     print(f"Unit cell volume: {ucvA} A\N{SUPERSCRIPT THREE}")
 
     # Calculating magnetization in Tesla
-    magnetization_in_T = tot_magn_mom_C / ucvA * 11.654
+    magn_polarization_in_T = tot_magn_mom_C / ucvA * 11.654
 
-    return magnetization_in_T, ucvA
+    return magn_polarization_in_T, ucvA
 
 
 def compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA):
@@ -330,5 +332,117 @@ def compute_exchange_and_anisotropy_constants(
         ax.set_xlabel("Temperature (K)")
         ax.set_ylabel("Magnetic polarization J (T)")
         ax.grid()
+
+    return A_0, A_300, K_300, Js_300
+
+
+def get_mammos_data(data_dir, README=False):
+    """
+    Extracts magnetic polarization, anisotropy constant, and related magnetic properties from data files in the specified directory.
+    This function processes a directory containing magnetic material simulation results, checks the structure of the datasets,
+    reads relevant output files, computes magnetization and anisotropy constants, and optionally compares the results to reference
+    values provided in a README file. It prints diagnostic information and returns computed magnetic parameters.
+    Parameters
+    ----------
+    data_dir : str
+        The directory containing the data files for analysis.
+    README : bool, optional
+        If True, compares computed values to those in the README file and prints deviations (default is False).
+    Returns
+    -------
+    A_0 : float
+        Exchange constant at 0 K.
+    A_300 : float
+        Exchange constant at 300 K.
+    K_300 : float
+        Anisotropy constant at 300 K.
+    Js_300 : float
+        Saturation magnetization at 300 K.
+    Raises
+    ------
+    FileNotFoundError
+        If the specified data directory does not exist.
+    Notes
+    -----
+    The function assumes a specific directory structure and the presence of certain files as output from magnetic simulations.
+    It relies on several helper functions (e.g., `find_line_val_dict`, `compute_magnetization`, etc.) for data extraction and computation.
+    Diagnostic and comparison information is printed to the console.
+    """
+
+    # Get the data directory
+    data_dir = os.path.abspath(data_dir)
+    print(f"Data directory: {data_dir}")
+
+
+    # Check if the directory exists
+    if not os.path.isdir(data_dir):
+        raise FileNotFoundError(f"The directory '{data_dir}' does not exist.")
+
+    structure_check_datasets = cffs.check_structure(data_dir, check_README=True, verbose=True)
+
+    data_dir_GS = data_dir + "/GS"
+    data_dir_MC = data_dir + "/MC"
+
+    xyz_dirs = [dirdir for dirdir in os.listdir(data_dir_GS) if len(dirdir) == 1]
+
+    print(data_dir_GS)
+    print(data_dir_MC)
+    print(xyz_dirs)
+
+    # Reading file into lines; all folders are equivalent according to UU-colleagues, so we can use the first one
+    file_Name_Ms = data_dir_GS + f"/{xyz_dirs[0]}/out_last"
+    print(file_Name_Ms)
+
+    # Create dicts with orbital IDs and values of corresponding
+    # Total moments and their directions (+/-1)
+    tot_moments_D = find_line_val_dict(file_Name_Ms, 'Total moment [J=L+S] (mu_B):')
+    dir_of_JD = find_line_val_dict(file_Name_Ms, 'Direction of J (Cartesian):')
+
+    magn_polarization_in_T, ucvA = compute_magnetization(tot_moments_D, dir_of_JD, file_Name_Ms)
+    #print(f'Magnetization Ms: {magn_polarization_in_T} T')
+
+    K1_in_JPerCubibm = compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA)
+    print(f'Anisotropy constant (max of all): {K1_in_JPerCubibm} J/m\N{SUPERSCRIPT THREE}')
+
+    A_0, A_300, K_300, Js_300 = compute_exchange_and_anisotropy_constants(data_dir_MC, tot_moments_D, K1_in_JPerCubibm, ucvA, plot_Js=True)
+
+    if structure_check_datasets:
+        print('\n# The structure of all datasets is correct.')
+    else:
+        print('\n# The structure of some datasets is incorrect.')
+        print('Datasets with incorrect structure:')
+        print(data_dir)
+
+    # Compare values to the ones in README
+    if README:
+        Ms_README_in_T, max_MAE_README_in_MJPerCubicm = extract_values_from_readme(data_dir)
+    
+        MAE_in_MJPerCubicm = K1_in_JPerCubibm /1e6
+
+        print(" Js_in_T = "+str(round_to_significant_digits(magn_polarization_in_T, 4)) + " T")
+        print(" MAE_in_MJPerCubicm = " + str(round_to_significant_digits(MAE_in_MJPerCubicm, 4)) + " MJ/m^3")
+
+        deviation_Ms_in_percent = 100 - (magn_polarization_in_T/ Ms_README_in_T) * 100
+        print(" Deviation for magnetization in percent = "+str(round_to_significant_digits(deviation_Ms_in_percent, 4)) + " %")
+
+        try:
+            deviation_mae_percent = 100 - ((MAE_in_MJPerCubicm) / max_MAE_README_in_MJPerCubicm) * 100
+            print(" Deviation for anisotropy energy/constant in percent = " + str(round_to_significant_digits(deviation_mae_percent, 4)) + " %")
+        except NameError:
+            print("MAE values not found in README")
+
+        if (abs(deviation_Ms_in_percent)<2.) and (abs(deviation_mae_percent)<2.):
+            print('The deviation for magnetization and anisotropy in dataset '+data_dir+' is\n **less** than 2% compared to the provided values.')
+            positive_datasets = True
+        else:
+            print('The deviation for magnetization and anisotropy in dataset '+data_dir+' is\n **more** than 2% compared to the provided values.')
+            positive_datasets = False
+
+        if positive_datasets:
+            print('\n# The results for all datasets are within the specified boundaries.')
+        else:
+            print('\n# The results for some datasets are outside the specified boundaries.')
+            print('Datasets with deviations more than 2%:')
+            print(data_dir)        
 
     return A_0, A_300, K_300, Js_300
