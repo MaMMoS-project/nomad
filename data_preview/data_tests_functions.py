@@ -348,6 +348,8 @@ def get_mammos_data(data_dir, README=False):
         The directory containing the data files for analysis.
     README : bool, optional
         If True, compares computed values to those in the README file and prints deviations (default is False).
+        TODO: make True version protected from missing values in README, so far it breaks, cause extract_values_from_readme function
+        can return none values if smth is missing.
     Returns
     -------
     A_0 : float
