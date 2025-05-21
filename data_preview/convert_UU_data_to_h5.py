@@ -13,6 +13,7 @@ import h5py
 import numpy as np
 import argparse
 import datetime
+import data_tests_functions as dtf
 
 parser = argparse.ArgumentParser(
     description="Convert folder structure and files to HDF5."
@@ -88,12 +89,24 @@ with h5py.File(hdf5_file, "w") as h5f:
         "composition", data=["Co2Fe16Y6"]
     )
 
-    js_dataset = results_group.create_dataset("Js", data=[123.456])
+    mammos_data = dtf.get_mammos_data(source_dir)
+
+    js_dataset = results_group.create_dataset("A_0", data=mammos_data[0])
+    unit_group = results_group.require_group("A_unit")
+    unit_group.attrs["unit"] = "T"
+    js_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstantA"
+
+    js_dataset = results_group.create_dataset("A_300", data=mammos_data[1])
+    unit_group = results_group.require_group("A_unit")
+    unit_group.attrs["unit"] = "T"
+    js_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstantA"
+
+    js_dataset = results_group.create_dataset("K1_300", data=mammos_data[2])
     unit_group = results_group.require_group("Js_unit")
     unit_group.attrs["unit"] = "T"
     js_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
 
-    js_dataset = results_group.create_dataset("K1", data=[123.456])
+    js_dataset = results_group.create_dataset("Js_300", data=mammos_data[3])
     unit_group = results_group.require_group("K1_unit")
     unit_group.attrs["unit"] = "J/m^3"
     unit_group.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
