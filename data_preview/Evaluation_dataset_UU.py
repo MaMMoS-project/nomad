@@ -14,10 +14,10 @@ structure_check_datasets = {}
 # data_dir = '/Users/santapile/Santas/Projects/MaMMoS/NOMAD/dataExamples/UU/UU-sets/Fe3-xZnxY(x=0.22)'
 
 # data_dirs.append('Co2Fe2H4')
-data_dirs.append('Co2Fe16Y6')
-data_dirs.append('Fe3-xTaxY(x=0.22)')
-data_dirs.append('Fe3-xVxY(x=0.22)')
-data_dirs.append('Fe3-xZnxY(x=0.22)')
+data_dirs.append('./dataSets/Mn2CrB4')
+# data_dirs.append('Fe3-xTaxY(x=0.22)')
+# data_dirs.append('Fe3-xVxY(x=0.22)')
+# data_dirs.append('Fe3-xZnxY(x=0.22)')
 
 
 for data_dir in data_dirs:

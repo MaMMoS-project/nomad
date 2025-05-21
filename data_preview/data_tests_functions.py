@@ -271,7 +271,11 @@ def compute_exchange_and_anisotropy_constants(
     Js = [item * n_atoms / ucvA * 11.654 for item in Js]
 
     poscut = np.argmin(np.diff(Js) / np.diff(TK)) + 2
-    Tc = TK[poscut]
+    try:
+        Tc = TK[poscut]
+    except IndexError:
+        Tc = TK[-1]
+        poscut = len(TK) - 1
     print(f"Tc = {Tc} K")
     TKc = TK[:poscut].copy()
     Jsc = Js[:poscut].copy()
