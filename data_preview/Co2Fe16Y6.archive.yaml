@@ -1,31 +1,18 @@
 definitions:
-  name: 'hdf5'
+  name: 'Simulation_data_from_UU_in_h5'
   sections:
     Simulation_data_from_UU:
       base_sections:
+        - 'nomad.datamodel.metainfo.eln.Chemical'
         - 'nomad.datamodel.data.EntryData'
         - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
+        - 'nomad.datamodel.metainfo.basesections.ReadableIdentifiers'
       quantities:
         datafile:
-          default: output_Co2Fe16Y6.h5
-          # default: output_Co2Fe16Y6_Js_minimal.h5'
-          # default: output_file.hdf5'
           type: str
           m_annotations:
             eln:
               component: FileEditQuantity
-        composition: 
-          type: str
-          shape: []
-          m_annotations:
-            hdf5:
-              path: '/results/composition'
-        composition_in_array: 
-          type: str
-          shape: ['*']
-          m_annotations:
-            hdf5:
-              path: '/results/composition_in_array'
         Js_300:
           type: np.float32
           shape: ['*']
@@ -51,5 +38,9 @@ definitions:
 data:
   m_def: Simulation_data_from_UU
   datafile: 'output_Co2Fe16Y6.h5'
-  # datafile: 'output_Co2Fe16Y6_Js_minimal.h5'
-  # datafile: 'output_file.hdf5'
+  chemical_formula: Co2Fe16Y6
+  institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
+  owner: 'Alena Vishina'
+  # For other identifiers like 'Instrument' see also:
+  # https://nomad-lab.eu/prod/v1/docs/howto/customization/base_sections.html#datamodelmetainfobasesections
+  # and from the develpment system https://nomad-lab.eu/prod/v1/develop/docs/reference/basesections.html#process
