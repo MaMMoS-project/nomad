@@ -85,35 +85,39 @@ with h5py.File(hdf5_file, "w") as h5f:
     # Always create the 'results' group and store Js as a dataset, with unit as a subgroup (H5MD style) and link as its attribute
     results_group = h5f.require_group("results")
 
-    composition_dataset = results_group.create_dataset(
-        "composition", data=["Co2Fe16Y6"]
+    composition_dataset = results_group.create_dataset("composition", data="Co2Fe16Y6")
+    composition_dataset_array = results_group.create_dataset(
+        "composition_in_array", data=["Co2Fe16Y6"]
     )
 
     mammos_data = dtf.get_mammos_data(source_dir)
 
-    js_dataset = results_group.create_dataset("A_0", data=mammos_data[0])
+    A0_dataset = results_group.create_dataset("A_0", data=mammos_data[0])
+    A0_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstant"
     unit_group = results_group.require_group("A_unit")
-    unit_group.attrs["unit"] = "T"
-    js_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstantA"
+    unit_group.attrs["unit"] = "J/m"
+    unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
-    js_dataset = results_group.create_dataset("A_300", data=mammos_data[1])
+    A300_dataset = results_group.create_dataset("A_300", data=mammos_data[1])
+    A300_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstant"
     unit_group = results_group.require_group("A_unit")
-    unit_group.attrs["unit"] = "T"
-    js_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstantA"
+    unit_group.attrs["unit"] = "J/m"
+    unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
-    js_dataset = results_group.create_dataset("K1_300", data=mammos_data[2])
-    unit_group = results_group.require_group("Js_unit")
-    unit_group.attrs["unit"] = "T"
-    js_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
+    K1_300_dataset = results_group.create_dataset("K1_300", data=[mammos_data[2]])
+    K1_300_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
+    K1_300_dataset.attrs["unit"] = "T"
 
-    js_dataset = results_group.create_dataset("Js_300", data=mammos_data[3])
-    unit_group = results_group.require_group("K1_unit")
-    unit_group.attrs["unit"] = "J/m^3"
-    unit_group.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
-
-    js_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
-    js_dataset.attrs["ontology_iri"] = (
+    Js_300_dataset = results_group.create_dataset("Js_300", data=[mammos_data[3]])
+    Js_300_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
+    Js_300_dataset.attrs["ontology_iri"] = (
         "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
+    )
+    Js_300_dataset.attrs["unit"] = "J/m^3"
+    Js_300_dataset.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
+
+    Js_300_dataset_as_scalar = results_group.create_dataset(
+        "Js_300_scalar", data=mammos_data[3]
     )
 
 

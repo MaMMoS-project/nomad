@@ -1,40 +1,55 @@
 definitions:
   name: 'hdf5'
-
   sections:
-  
-    UUSimu:
+    Simulation_data_from_UU:
       base_sections:
         - 'nomad.datamodel.data.EntryData'
         - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
       quantities:
         datafile:
           default: output_Co2Fe16Y6.h5
+          # default: output_Co2Fe16Y6_Js_minimal.h5'
+          # default: output_file.hdf5'
           type: str
           m_annotations:
             eln:
               component: FileEditQuantity
-        # composition: 
-        #   type: str
-        #   shape: ['*']
-        #   m_annotations:
-        #     hdf5:
-        #       path: '/results/composition'
-        Js:
+        composition: 
+          type: str
+          shape: []
+          m_annotations:
+            hdf5:
+              path: '/results/composition'
+        composition_in_array: 
+          type: str
+          shape: ['*']
+          m_annotations:
+            hdf5:
+              path: '/results/composition_in_array'
+        Js_300:
           type: np.float32
           shape: ['*']
           unit: T
           m_annotations:
             hdf5:
-              path: '/results/Js'
-        K1:
+              path: '/results/Js_300'
+        Js_300_scalar:
+          type: np.float32
+          shape: []
+          unit: T
+          m_annotations:
+            hdf5:
+              path: '/results/Js_300_scalar'
+        K1_300:
           type: np.float32
           shape: ['*']
           unit: J/m^3
           defaultDisplayUnit: "J/m^3"
           m_annotations:
             hdf5:
-              path: '/results/K1'
+              path: '/results/K1_300'
 data:
-  m_def: UUSimu
+  m_def: Simulation_data_from_UU
   datafile: 'output_Co2Fe16Y6.h5'
+  # datafile: 'output_Co2Fe16Y6_Js_minimal.h5'
+  # datafile: 'output_file.hdf5'
