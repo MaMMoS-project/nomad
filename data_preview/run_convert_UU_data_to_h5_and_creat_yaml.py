@@ -4,6 +4,10 @@ import os
 import shutil
 
 
+# TODO: allow to rund in nested folders and create a .yaml and .h5 file in the current folder
+# TODO: check if the folder-name is a valid chemical formula (Co2Fe16Y6 vs. Fe3-xZnxY(x=0.22)) and make sure the formula is provided elsewhere
+
+
 # Usage: python run_convert_UU_data_to_h5.py <subfolder_name>
 def main():
     import argparse
