@@ -1,7 +1,6 @@
 import subprocess
 import sys
 import os
-import shutil
 
 
 # TODO: allow to rund in nested folders and create a .yaml and .h5 file in the current folder
@@ -39,7 +38,7 @@ def main():
     # Replace all occurrences of e.g. 'Co2Fe16Y6' with the subfolder name
     content = content.replace("$chemical_formula$", subfolder)
     # Replace all occurrences of e.g. 'Co2Fe16Y6.h5' with '<subfolder>.h5'
-    content = content.replace(f"$filename.h5$", f"{subfolder}.h5")
+    content = content.replace("$filename.h5$", f"{subfolder}.h5")
     # Save the new archive.yaml
     with open(new_archive, "w") as f:
         f.write(content)
