@@ -1,12 +1,12 @@
 """
 convert_UU_data_to_h5.py
-Version: 0.0.1
-Author: [Your Name]
-Date: 2025-05-14
+Version: 0.0.2
+Author: Wilfried Hortschitz
+Date: 2025-05-22
 Description: Converts folder structure and files to HDF5, including text and CSV files.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 import os
 import h5py
@@ -39,7 +39,7 @@ args = parser.parse_args()
 source_dir = args.source_dir
 exclude_DOSCAR = args.exclude_DOSCAR
 js_minimal = args.js_minimal
-hdf5_file = "output_" + os.path.basename(source_dir.rstrip("/"))
+hdf5_file = "" + os.path.basename(source_dir.rstrip("/"))
 if exclude_DOSCAR:
     hdf5_file += "_DOSCAR_excluded"
 if js_minimal:
@@ -60,7 +60,7 @@ with h5py.File(hdf5_file, "w") as h5f:
     creator = h5f.require_group("creator")
     creator.attrs["name"] = "convert_UU_data_to_h5.py"
     creator.attrs["version"] = __version__
-    creator.attrs["author"] = "[Wilfried Hortschitz]"
+    creator.attrs["author"] = "Wilfried Hortschitz"
     creator.attrs["date"] = datetime.datetime.now().isoformat()
 
     # Only export raw_data if not js_minimal
@@ -85,30 +85,38 @@ with h5py.File(hdf5_file, "w") as h5f:
     # Always create the 'results' group and store Js as a dataset, with unit as a subgroup (H5MD style) and link as its attribute
     results_group = h5f.require_group("results")
 
-    composition_dataset = results_group.create_dataset("composition", data="Co2Fe16Y6")
-    composition_dataset_array = results_group.create_dataset(
-        "composition_in_array", data=["Co2Fe16Y6"]
-    )
+    # composition_dataset = results_group.create_dataset("composition", data="Co2Fe16Y6")
+    # composition_dataset_array = results_group.create_dataset(
+    #     "composition_in_array", data=["Co2Fe16Y6"]
+    # )
 
     mammos_data = dtf.get_mammos_data(source_dir)
 
+    # TODO: add BHmax, Lex, Tc, Total_magnetic_moment, and Spin_wave_stiffness_constant to h5 file
+
     A0_dataset = results_group.create_dataset("A_0", data=mammos_data[0])
     A0_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstant"
+    A0_dataset.attrs["description"] = "Exchange stiffness constant at 0 K"
     unit_group = results_group.require_group("A_unit")
     unit_group.attrs["unit"] = "J/m"
     unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
     A300_dataset = results_group.create_dataset("A_300", data=mammos_data[1])
     A300_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstant"
+    A300_dataset.attrs["description"] = "Exchange stiffness constant at 300 K"
     unit_group = results_group.require_group("A_unit")
     unit_group.attrs["unit"] = "J/m"
     unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
     K1_300_dataset = results_group.create_dataset("K1_300", data=[mammos_data[2]])
+    K1_300_dataset.attrs["description"] = "Spontaneous magnetic polarization at 300 K"
     K1_300_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
     K1_300_dataset.attrs["unit"] = "T"
 
     Js_300_dataset = results_group.create_dataset("Js_300", data=[mammos_data[3]])
+    Js_300_dataset.attrs["description"] = (
+        "Magnetocrystalline anisotropy constant at 300 K"
+    )
     Js_300_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
     Js_300_dataset.attrs["ontology_iri"] = (
         "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
