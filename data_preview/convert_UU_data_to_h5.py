@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--source_dir",
     type=str,
-    default="Co2Fe16Y6",
+    default="./dataSets/Mn2CrB4",
     help="Source directory to convert (default: Co2Fe16Y6)",
 )
 parser.add_argument(
@@ -92,12 +92,15 @@ with h5py.File(hdf5_file, "w") as h5f:
 
     mammos_data = dtf.get_mammos_data(source_dir)
 
-    # TODO: add BHmax, Lex, Tc, Total_magnetic_moment, and Spin_wave_stiffness_constant to h5 file
+    # TODO: add BHmax (what's that?), Lex, Tc (why? it will not be precise), 
+    # Total_magnetic_moment (we have it as a polarization),
+    # and Spin_wave_stiffness_constant to h5 file
 
     A0_dataset = results_group.create_dataset("A_0", data=mammos_data[0])
     A0_dataset.attrs["link_in_ontology"] = "ExchangeStiffnessConstant"
     A0_dataset.attrs["description"] = "Exchange stiffness constant at 0 K"
     unit_group = results_group.require_group("A_unit")
+    # TODO: why A_unit as a separate data entry?
     unit_group.attrs["unit"] = "J/m"
     unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
@@ -109,25 +112,42 @@ with h5py.File(hdf5_file, "w") as h5f:
     unit_group.attrs["unit_link_in_ontology"] = "JoulePerMetre"
 
     K1_300_dataset = results_group.create_dataset("K1_300", data=[mammos_data[2]])
-    K1_300_dataset.attrs["description"] = "Spontaneous magnetic polarization at 300 K"
-    K1_300_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
-    K1_300_dataset.attrs["unit"] = "T"
+    # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
+    K1_300_dataset.attrs["description"] = "Magnetocrystalline anisotropy constant at 300 K"
+    K1_300_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
+    K1_300_dataset.attrs["unit"] = "J/m^3"
+    K1_300_dataset.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
 
     Js_300_dataset = results_group.create_dataset("Js_300", data=[mammos_data[3]])
+    # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
     Js_300_dataset.attrs["description"] = (
-        "Magnetocrystalline anisotropy constant at 300 K"
+        "Spontaneous magnetic polarization at 300 K"
     )
-    Js_300_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
+    Js_300_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
     Js_300_dataset.attrs["ontology_iri"] = (
         "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
     )
-    Js_300_dataset.attrs["unit"] = "J/m^3"
-    Js_300_dataset.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
+    Js_300_dataset.attrs["unit"] = "T"
 
     Js_300_dataset_as_scalar = results_group.create_dataset(
         "Js_300_scalar", data=mammos_data[3]
     )
+    # TODO: why scalar as a separate entry?
 
+    Js_0_dataset = results_group.create_dataset("Js_0", data=[mammos_data[4]])
+    # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
+    Js_0_dataset.attrs["description"] = (
+        "Spontaneous magnetic polarization at 0 K"
+    )
+    Js_0_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
+    Js_0_dataset.attrs["ontology_iri"] = (
+        "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
+    )
+    Js_0_dataset.attrs["unit"] = "T"
+
+    Js_0_dataset_as_scalar = results_group.create_dataset(
+        "Js_0_scalar", data=mammos_data[4]
+    )
 
 if __name__ == "__main__":
     print(f"Convert_UU_data_to_h5.py version {__version__}")

@@ -333,7 +333,7 @@ def compute_exchange_and_anisotropy_constants(
         ax.set_ylabel("Magnetic polarization J (T)")
         ax.grid()
 
-    return A_0, A_300, K_300, Js_300
+    return A_0, A_300, K_300, Js_300, Js_0
 
 
 def get_mammos_data(data_dir, README=False):
@@ -406,7 +406,7 @@ def get_mammos_data(data_dir, README=False):
     K1_in_JPerCubibm = compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA)
     print(f'Anisotropy constant (max of all): {K1_in_JPerCubibm} J/m\N{SUPERSCRIPT THREE}')
 
-    A_0, A_300, K_300, Js_300 = compute_exchange_and_anisotropy_constants(data_dir_MC, tot_moments_D, K1_in_JPerCubibm, ucvA, plot_Js=True)
+    A_0, A_300, K_300, Js_300, Js_0 = compute_exchange_and_anisotropy_constants(data_dir_MC, tot_moments_D, K1_in_JPerCubibm, ucvA, plot_Js=True)
 
     if structure_check_datasets:
         print('\n# The structure of all datasets is correct.')
@@ -447,4 +447,4 @@ def get_mammos_data(data_dir, README=False):
             print('Datasets with deviations more than 2%:')
             print(data_dir)        
 
-    return A_0, A_300, K_300, Js_300
+    return A_0, A_300, K_300, Js_300, Js_0
