@@ -34,17 +34,28 @@ parser.add_argument(
     action="store_true",
     help="Export only Js to the HDF5 file (default: export full structure)",
 )
+parser.add_argument(
+    "--output_file",
+    type=str,
+    default=None,
+    help="Path and name for the output HDF5 file (default: <source_dir_basename>.h5 in current directory)",
+)
 args = parser.parse_args()
 
 source_dir = args.source_dir
 exclude_DOSCAR = args.exclude_DOSCAR
 js_minimal = args.js_minimal
-hdf5_file = "" + os.path.basename(source_dir.rstrip("/"))
+
+# Determine output file path
+if args.output_file:
+    hdf5_file = args.output_file
+else:
+    hdf5_file = os.path.basename(source_dir.rstrip("/")) + ".h5"
+
 if exclude_DOSCAR:
-    hdf5_file += "_DOSCAR_excluded"
+    hdf5_file = hdf5_file.replace(".h5", "_DOSCAR_excluded.h5")
 if js_minimal:
-    hdf5_file += "_Js_minimal"
-hdf5_file += ".h5"
+    hdf5_file = hdf5_file.replace(".h5", "_Js_minimal.h5")
 
 # Remove the HDF5 file if it already exists
 if os.path.exists(hdf5_file):
@@ -92,7 +103,7 @@ with h5py.File(hdf5_file, "w") as h5f:
 
     mammos_data = dtf.get_mammos_data(source_dir)
 
-    # TODO: add BHmax (what's that?), Lex, Tc (why? it will not be precise), 
+    # TODO: add BHmax (what's that?), Lex, Tc (why? it will not be precise),
     # Total_magnetic_moment (we have it as a polarization),
     # and Spin_wave_stiffness_constant to h5 file
 
@@ -113,16 +124,16 @@ with h5py.File(hdf5_file, "w") as h5f:
 
     K1_300_dataset = results_group.create_dataset("K1_300", data=[mammos_data[2]])
     # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
-    K1_300_dataset.attrs["description"] = "Magnetocrystalline anisotropy constant at 300 K"
+    K1_300_dataset.attrs["description"] = (
+        "Magnetocrystalline anisotropy constant at 300 K"
+    )
     K1_300_dataset.attrs["link_in_ontology"] = "MagnetocrystallineAnisotropyConstantK1"
     K1_300_dataset.attrs["unit"] = "J/m^3"
     K1_300_dataset.attrs["unit_link_in_ontology"] = "JoulePerCubicMetre"
 
     Js_300_dataset = results_group.create_dataset("Js_300", data=[mammos_data[3]])
     # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
-    Js_300_dataset.attrs["description"] = (
-        "Spontaneous magnetic polarization at 300 K"
-    )
+    Js_300_dataset.attrs["description"] = "Spontaneous magnetic polarization at 300 K"
     Js_300_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
     Js_300_dataset.attrs["ontology_iri"] = (
         "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
@@ -136,9 +147,7 @@ with h5py.File(hdf5_file, "w") as h5f:
 
     Js_0_dataset = results_group.create_dataset("Js_0", data=[mammos_data[4]])
     # TODO: why vector? meaning [mammos_data[2]] vs mammos_data[2]
-    Js_0_dataset.attrs["description"] = (
-        "Spontaneous magnetic polarization at 0 K"
-    )
+    Js_0_dataset.attrs["description"] = "Spontaneous magnetic polarization at 0 K"
     Js_0_dataset.attrs["link_in_ontology"] = "SpontaneousMagneticPolarisation"
     Js_0_dataset.attrs["ontology_iri"] = (
         "https://mammos-project.github.io/MagneticMaterialsOntology/doc/magnetic_material_mammos.html#EMMO_2bb87117-30f9-5b3a-b406-731836a3902f"
