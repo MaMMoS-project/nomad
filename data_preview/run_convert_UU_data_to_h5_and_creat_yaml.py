@@ -18,8 +18,14 @@ def main():
     parser.add_argument(
         "--source_dir",
         nargs="?",
-        default="Co2Fe16Y6",
+        default="Mn2CrB4",
         help="Subfolder name under 'dataSets' directory (default: Co2Fe16Y6)",
+    )
+    parser.add_argument(
+        "--dataSets_dir",
+        nargs="?",
+        default="./dataSets",
+        help="Directory containing the data sets (default: ./dataSets)",
     )
     args = parser.parse_args()
     subfolder = args.source_dir

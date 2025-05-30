@@ -5,6 +5,7 @@ definitions:
       base_sections:
         # found here https://github.com/FAIRmat-NFDI/nomad-docs/tree/add60881b95815b1a22dc88db5777df9aa52235c/examples/data/custom-schema
         - 'nomad.datamodel.metainfo.eln.Chemical'
+        - 'nomad.datamodel.metainfo.simulation.method.DFT'
         - 'nomad.datamodel.data.EntryData'
         - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
         - 'nomad.datamodel.metainfo.basesections.ReadableIdentifiers'
@@ -48,6 +49,7 @@ data:
   chemical_formula: $chemical_formula$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
   owner: 'Alena Vishina'
+
   # For other identifiers like 'Instrument' see also:
   # https://nomad-lab.eu/prod/v1/docs/howto/customization/base_sections.html#datamodelmetainfobasesections
   # and from the develpment system https://nomad-lab.eu/prod/v1/develop/docs/reference/basesections.html#process
