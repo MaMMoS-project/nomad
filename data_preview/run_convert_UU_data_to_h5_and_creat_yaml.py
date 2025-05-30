@@ -18,7 +18,7 @@ def main():
     parser.add_argument(
         "--source_dir",
         nargs="?",
-        default="Co2Fe16Y6",
+        default="Mn2CrB4",
         help="Subfolder name under 'dataSets' directory (default: Co2Fe16Y6)",
     )
     args = parser.parse_args()
@@ -26,7 +26,7 @@ def main():
     dataSets_dir = "./dataSets"
     subfolder_path = os.path.join(dataSets_dir, subfolder)
     if not os.path.isdir(subfolder_path):
-        print(f"Error: {subfolder} is not a valid directory.")
+        print(f"Error: {subfolder_path} is not a valid directory.")
         sys.exit(1)
     script = "convert_UU_data_to_h5.py"
     h5_file = os.path.join(dataSets_dir, f"{subfolder}.h5")

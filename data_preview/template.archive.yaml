@@ -3,6 +3,7 @@ definitions:
   sections:
     Simulation_data_from_UU:
       base_sections:
+        # found here https://github.com/FAIRmat-NFDI/nomad-docs/tree/add60881b95815b1a22dc88db5777df9aa52235c/examples/data/custom-schema
         - 'nomad.datamodel.metainfo.eln.Chemical'
         - 'nomad.datamodel.data.EntryData'
         - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
@@ -35,6 +36,12 @@ definitions:
           m_annotations:
             hdf5:
               path: '/results/K1_300'
+        description:
+          type: str
+          m_annotations:
+            eln:
+              component: FileEditQuantity
+  
 data:
   m_def: Simulation_data_from_UU
   datafile: '$filename.h5$'
