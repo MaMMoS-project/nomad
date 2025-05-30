@@ -18,12 +18,12 @@ def main():
     parser.add_argument(
         "--source_dir",
         nargs="?",
-        default="Mn2CrB4",
+        default="Co2Fe16Y6",
         help="Subfolder name under 'dataSets' directory (default: Co2Fe16Y6)",
     )
     args = parser.parse_args()
     subfolder = args.source_dir
-    dataSets_dir = "./dataSets"
+    dataSets_dir = args.dataSets_dir
     subfolder_path = os.path.join(dataSets_dir, subfolder)
     if not os.path.isdir(subfolder_path):
         print(f"Error: {subfolder_path} is not a valid directory.")
