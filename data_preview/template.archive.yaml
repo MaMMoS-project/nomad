@@ -49,6 +49,7 @@ data:
   chemical_formula: $chemical_formula$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
   owner: 'Alena Vishina'
+  method: 'DFT'
 
   # For other identifiers like 'Instrument' see also:
   # https://nomad-lab.eu/prod/v1/docs/howto/customization/base_sections.html#datamodelmetainfobasesections
