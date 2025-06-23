@@ -1,0 +1,78 @@
+definitions:
+  name: 'NEEL Sample with position on the wafer and elemental composition'
+  sections:
+    Sample:
+      base_sections:
+        # - 'nomad.datamodel.metainfo.eln.ElnBaseSection'
+        # - 'nomad.datamodel.metainfo.eln.Sample'
+        - 'nomad.datamodel.data.EntryData'
+      # m_annotations:
+        # We can use the eln annotations to put the section to the overview
+        # page, and hide unwanted inherited quantities.
+        # eln:
+        #   overview: true
+          # hide: ['name', 'lab_id', 'description']
+          # hide: ['chemical_formula']
+      quantities:
+        name:
+          type: str
+          default: Default Name for NEEL-Sample
+        description:
+          type: str
+          # m_annotations:
+            # eln: 
+              # component: RichTextEditQuantity
+              # label: Comment
+        lab_id:
+          type: str
+        short_name:
+          type: str
+        xpos:
+          type: np.float64
+          unit: mm
+          description: "x- position of the sample on the wafer"
+        ypos:
+          type: np.float64
+          unit: mm
+          description: "y- position of the sample on the wafer"
+        CoercivityBHcExternal:
+          type: np.float64
+          unit: A/m
+      sub_sections:
+        elemental_composition:
+          repeats: True
+          section:
+            base_sections:
+              - 'nomad.datamodel.metainfo.basesections.ElementalComposition'
+            more:
+              label_quantity: element, atomic_fraction
+            quantities:
+              element:
+                type: str
+              atomic_fraction:
+                type: np.float64
+              mass_fraction:
+                type: np.float64
+data:
+  m_def: Sample
+  description: "Sample from NEEL wafer with x and y positions and chemical elementals"
+  lab_id: 'CNRS Institut Néel'
+  short_name: 'NEEL-Sample-002'
+  owner: 'Nora Dempsey'
+
+  # possible fields from the .hdf5 file
+  # fabrication_date: '13/5/2025'
+  # operator: 'Pierre'
+  # sample_name: NOMAD_test2
+
+  # 'x_position', 'x_pos' and 'xposition' does not work
+  xpos: $$xpos$$
+  ypos: $$ypos$$
+
+  CoercivityBHcExternal: 313.5
+  
+  elemental_composition:
+    - element: $$element$$
+      atomic_fraction: $$atomic_fraction$$
+      mass_fraction: $$mass_fraction$$
+
