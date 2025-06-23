@@ -6,6 +6,8 @@ from datetime import datetime
 
 # TODO: Implement extraction of Hc
 # TODO: calculate chemical formula from atomic fractions
+#       -> round to nearest integer???
+#       -> compute atomic fractions from the new elemental data
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
@@ -29,6 +31,7 @@ def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction)
     Returns:
     tuple: (a, b, c) - stoichiometric coefficients for Nd_a Ce_b Fe_c B compound
     """
+    # NdCeFeB Composition conversion from EDX (without B) to 2:14:1 (including B)
     fe_fraction = 1 - nd_fraction - ce_fraction
     if fe_fraction <= 0:
         # Invalid input - Fe fraction must be positive
@@ -39,6 +42,66 @@ def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction)
     c = 14  # Assuming Fe is only in the main phase
 
     return a, b, c
+
+
+def calculate_atomic_fractions_with_boron(a, b, c=14):
+    """
+    Calculate atomic fractions including Boron from stoichiometric coefficients.
+
+    For compound Nd_a Ce_b Fe_c B, the atomic fractions are:
+    - Nd: a / (a + b + c + 1)
+    - Ce: b / (a + b + c + 1)
+    - Fe: c / (a + b + c + 1)
+    - B:  1 / (a + b + c + 1)
+
+    Parameters:
+    a (float): Stoichiometric coefficient for Nd
+    b (float): Stoichiometric coefficient for Ce
+    c (float): Stoichiometric coefficient for Fe (default 14)
+
+    Returns:
+    dict: Dictionary with atomic fractions for each element
+    """
+    total = a + b + c + 1  # +1 for the single B atom
+
+    return {
+        "Nd": a / total,
+        "Ce": b / total,
+        "Fe": c / total,
+        "B": 1 / total,
+    }
+
+
+def update_elements_with_recalculated_fractions(elements, recalculated_fractions):
+    """
+    Update the elements dictionary with recalculated atomic fractions.
+
+    Parameters:
+    elements (dict): Original elements dictionary from EDX data
+    recalculated_fractions (dict): Recalculated atomic fractions including B
+
+    Returns:
+    dict: Updated elements dictionary with recalculated fractions
+    """
+    updated_elements = elements.copy()
+
+    # Update existing elements with recalculated fractions
+    for element_symbol, new_fraction in recalculated_fractions.items():
+        if element_symbol in updated_elements:
+            # Update existing element
+            updated_elements[element_symbol]["atom_percent"] = new_fraction * 100.0
+            updated_elements[element_symbol]["recalculated"] = True
+        elif element_symbol == "B":
+            # Add Boron if it doesn't exist
+            updated_elements["B"] = {
+                "symbol_match": True,
+                "atom_percent": new_fraction * 100.0,
+                "mass_percent": None,  # We don't calculate mass percent for B
+                "recalculated": True,
+                "added_from_formula": True,
+            }
+
+    return updated_elements
 
 
 def check_for_nd_ce_fe_only(elements):
@@ -642,10 +705,35 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
 
         # Handle elemental composition
         elements = sample_data.get("elements", {})
+
+        # Check if we can recalculate atomic fractions with Boron
+        recalculated_elements = elements
         if elements:
+            is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction = (
+                check_for_nd_ce_fe_only(elements)
+            )
+            if is_nd_ce_fe_only and nd_fraction is not None and ce_fraction is not None:
+                # Compute stoichiometric coefficients
+                a, b, c = compute_stoichiometric_coefficients_from_fractions(
+                    nd_fraction, ce_fraction
+                )
+                if a is not None and b is not None and c is not None:
+                    # Calculate recalculated atomic fractions including Boron
+                    recalculated_fractions = calculate_atomic_fractions_with_boron(
+                        a, b, c
+                    )
+                    # Update elements with recalculated fractions
+                    recalculated_elements = update_elements_with_recalculated_fractions(
+                        elements, recalculated_fractions
+                    )
+                    print(
+                        f"Using recalculated atomic fractions including B for {sample_key}"
+                    )
+
+        if recalculated_elements:
             # Create elemental composition entries
             elemental_entries = []
-            for element_symbol, element_info in elements.items():
+            for element_symbol, element_info in recalculated_elements.items():
                 if (
                     element_info.get("symbol_match", False)
                     and element_info.get("atom_percent") is not None
@@ -656,16 +744,24 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                     # Convert atom percent to atomic fraction (divide by 100)
                     atomic_fraction = atom_percent / 100.0
 
+                    # Add comment if this is a recalculated value
+                    comment = ""
+                    if element_info.get("recalculated", False):
+                        if element_info.get("added_from_formula", False):
+                            comment = "  # Added from computed formula Nd_aCe_bFe_14B"
+                        else:
+                            comment = "  # Recalculated from formula Nd_aCe_bFe_14B"
+
                     # Convert mass percent to mass fraction (divide by 100) if available
                     if mass_percent is not None:
                         mass_fraction = mass_percent / 100.0
                         entry = f"""    - element: {element_symbol}
       atomic_fraction: {atomic_fraction:.6f}
-      mass_fraction: {mass_fraction:.6f}"""
+      mass_fraction: {mass_fraction:.6f}{comment}"""
                     else:
                         # If mass_percent is not available, omit mass_fraction
                         entry = f"""    - element: {element_symbol}
-      atomic_fraction: {atomic_fraction:.6f}"""
+      atomic_fraction: {atomic_fraction:.6f}{comment}"""
 
                     elemental_entries.append(entry)
 
