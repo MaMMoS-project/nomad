@@ -38,9 +38,6 @@ definitions:
         CoercivityBHcExternal:
           type: np.float64
           unit: A/m
-        chemical_formula:
-          type: str
-          description: "Computed chemical formula from stoichiometric coefficients"
       sub_sections:
         elemental_composition:
           repeats: True
@@ -73,8 +70,6 @@ data:
   ypos: $$ypos$$
 
   CoercivityBHcExternal: 313.5
-  
-  chemical_formula: $$chemical_formula$$
   
   elemental_composition:
     - element: $$element$$

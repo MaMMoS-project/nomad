@@ -5,9 +5,8 @@ import zipfile
 from datetime import datetime
 
 # TODO: Implement extraction of Hc
-# TODO: calculate chemical formula from atomic fractions
-#       -> round to nearest integer???
-#       -> compute atomic fractions from the new elemental data
+# Note: Chemical formula calculation is implemented but not exported to YAML
+#       (atomic fractions are recalculated including B and exported instead)
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
@@ -897,41 +896,12 @@ def create_yaml_from_template(
             template_content,
         )
 
-        # Check if we have only Nd, Ce, Fe elements and compute compound formula
-        compound_formula_comment = ""
-        compound_formula = ""
-        if elements:
-            is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction = (
-                check_for_nd_ce_fe_only(elements)
-            )
-            if is_nd_ce_fe_only and nd_fraction is not None and ce_fraction is not None:
-                a, b, c = compute_stoichiometric_coefficients_from_fractions(
-                    nd_fraction, ce_fraction
-                )
-                if a is not None and b is not None and c is not None:
-                    # Format the compound formula with reasonable precision
-                    compound_formula = f"Nd_{a:.2f}Ce_{b:.2f}Fe_{c:.2f}B"
-                    compound_formula_comment = (
-                        f"# Computed compound formula: {compound_formula}\n"
-                    )
-                    print(f"Adding compound formula to YAML: {compound_formula}")
-
-        # Replace chemical formula placeholder
-        if compound_formula:
-            template_content = template_content.replace(
-                "$$chemical_formula$$", compound_formula
-            )
-        else:
-            # Remove the chemical formula field if no formula can be computed
-            template_content = re.sub(
-                r"\s*chemical_formula:\s*\$\$chemical_formula\$\$\s*\n",
-                "",
-                template_content,
-            )
-
-        # Add compound formula comment at the beginning if available
-        if compound_formula_comment:
-            template_content = compound_formula_comment + template_content
+        # Remove chemical formula field from template (not exported)
+        template_content = re.sub(
+            r"\s*chemical_formula:\s*\$\$chemical_formula\$\$\s*\n",
+            "",
+            template_content,
+        )
 
         # Handle mass_fraction related modifications in the template
         if include_mass_fraction:
