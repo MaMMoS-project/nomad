@@ -38,6 +38,7 @@ definitions:
         CoercivityBHcExternal:
           type: np.float64
           unit: A/m
+          description: "Coercivity from MOKE measurements (optional)"
       sub_sections:
         elemental_composition:
           repeats: True
@@ -69,7 +70,7 @@ data:
   xpos: $$xpos$$
   ypos: $$ypos$$
 
-  CoercivityBHcExternal: 313.5
+  CoercivityBHcExternal: $$coercivity$$
   
   elemental_composition:
     - element: $$element$$

@@ -755,6 +755,32 @@ def create_yaml_from_template(
         template_content = template_content.replace("$$xpos$$", str(x_pos))
         template_content = template_content.replace("$$ypos$$", str(y_pos))
 
+        # Handle MOKE coercivity data
+        moke_data = sample_data.get("moke_data", {})
+        if moke_data.get("data_available", False) and "coercivity_mean" in moke_data:
+            coercivity_value = moke_data["coercivity_mean"]
+            print(f"Using extracted MOKE coercivity: {coercivity_value}")
+            if moke_data.get("coercivity_unit"):
+                print(f"Coercivity unit: {moke_data['coercivity_unit']}")
+            # Replace coercivity placeholder with actual value
+            template_content = template_content.replace(
+                "$$coercivity$$", str(coercivity_value)
+            )
+        else:
+            print("No MOKE data available, removing coercivity field from template")
+            # Remove the coercivity field entirely if no MOKE data
+            template_content = re.sub(
+                r"\s*CoercivityBHcExternal:\s*\$\$coercivity\$\$\s*\n",
+                "",
+                template_content,
+            )
+            # Also remove from schema definition if present
+            template_content = re.sub(
+                r"\s*CoercivityBHcExternal:\s*\n\s*type:\s*np\.float64\s*\n\s*unit:\s*A/m\s*\n",
+                "",
+                template_content,
+            )
+
         # Handle elemental composition
         elements = sample_data.get("elements", {})
 
@@ -980,27 +1006,31 @@ def process_all_samples_to_yaml(
 
     yaml_files_created = 0
 
-    for filename, file_data in all_coordinate_data.items():
+    # Merge EDX and MOKE data by coordinates
+    merged_data = merge_edx_and_moke_data(all_coordinate_data)
+
+    for filename, file_data in merged_data.items():
         file_base = os.path.splitext(filename)[0]  # Remove .hdf5 extension
 
-        for edx_group, samples in file_data.items():
+        for combined_group, samples in file_data.items():
             for sample_key, sample_data in samples.items():
                 # Extract coordinates for the filename
-                x_pos = sample_data.get("x_pos_instrument") or sample_data.get(
-                    "x_pos_EDX", 0.0
-                )
-                y_pos = sample_data.get("y_pos_instrument") or sample_data.get(
-                    "y_pos_EDX", 0.0
-                )
+                x_pos = sample_data.get("x_pos_instrument", 0.0)
+                y_pos = sample_data.get("y_pos_instrument", 0.0)
 
                 # Create clean coordinate string for filename
                 x_str = str(x_pos).replace(".", "_").replace("-", "neg")
                 y_str = str(y_pos).replace(".", "_").replace("-", "neg")
 
-                # Create output filename with more descriptive coordinate format
-                output_filename = (
-                    f"{file_base}_{edx_group}_xpos={x_str}_ypos={y_str}.archive.yaml"
-                )
+                # Create combined filename indicating both EDX and MOKE data types
+                data_types = []
+                if sample_data.get("has_edx", False):
+                    data_types.append("EDX")
+                if sample_data.get("has_moke", False):
+                    data_types.append("MOKE")
+
+                data_type_str = "_".join(data_types) if data_types else "UNKNOWN"
+                output_filename = f"{file_base}_{data_type_str}_xpos={x_str}_ypos={y_str}.archive.yaml"
                 output_path = os.path.join(output_dir, output_filename)
 
                 # Create YAML file from template
@@ -1295,6 +1325,82 @@ def main(single_file=None, verbose=True, include_mass_fraction=False):
             if verbose:
                 print("\nNo groups containing 'EDX' found in this file.")
 
+        # Find groups containing 'MOKE'
+        moke_groups = find_moke_groups(file_path)
+
+        if moke_groups:
+            if verbose:
+                print(f"\nFound {len(moke_groups)} group(s) containing 'MOKE':")
+                for group_path in moke_groups:
+                    print(f"  - {group_path}")
+
+            # Process coordinate data for each MOKE group
+            for group_path in moke_groups:
+                total_groups_processed += 1
+
+                # List entries for each MOKE group
+                list_group_entries(file_path, group_path, verbose)
+
+                # Process coordinates
+                MOKE_sample_coordinate_data = process_moke_coordinates(
+                    file_path, group_path, verbose
+                )
+                if MOKE_sample_coordinate_data:
+                    # Merge MOKE data with existing coordinate data or create new entry
+                    if filename not in all_coordinate_data:
+                        all_coordinate_data[filename] = {}
+                    all_coordinate_data[filename][group_path] = (
+                        MOKE_sample_coordinate_data
+                    )
+                    total_coordinates_found += len(MOKE_sample_coordinate_data)
+
+                    # Print coordinate analysis
+                    if verbose:
+                        print(f"\n--- MOKE Coordinate Analysis for {group_path} ---")
+                    for sample_group, data in MOKE_sample_coordinate_data.items():
+                        if verbose:
+                            print(f"Sample-group: {sample_group}")
+                            print(f"  x_pos_MOKE: {data['x_pos_MOKE']}")
+                            print(f"  y_pos_MOKE: {data['y_pos_MOKE']}")
+                            print(f"  x_pos_instrument: {data['x_pos_instrument']}")
+                            print(f"  y_pos_instrument: {data['y_pos_instrument']}")
+                            print(f"  x_pos_unit: {data['x_pos_unit']}")
+                            print(f"  y_pos_unit: {data['y_pos_unit']}")
+
+                        x_status = "✓" if data["x_match"] else "✗"
+                        y_status = "✓" if data["y_match"] else "✗"
+                        if verbose:
+                            print(f"  X coordinate match: {x_status}")
+                            print(f"  Y coordinate match: {y_status}")
+
+                        # Display MOKE data
+                        if data.get("moke_data", {}).get("data_available", False):
+                            moke_info = data["moke_data"]
+                            if verbose:
+                                print(
+                                    f"  Coercivity mean: {moke_info['coercivity_mean']}"
+                                )
+                                if moke_info.get("coercivity_unit"):
+                                    print(
+                                        f"  Coercivity unit: {moke_info['coercivity_unit']}"
+                                    )
+                        else:
+                            if verbose:
+                                error_msg = data.get("moke_data", {}).get(
+                                    "error", "Unknown error"
+                                )
+                                print(f"  No MOKE data available: {error_msg}")
+
+                        if data["x_match"] and data["y_match"]:
+                            total_matches += 1
+                        else:
+                            total_mismatches += 1
+                        if verbose:
+                            print()
+        else:
+            if verbose:
+                print("\nNo groups containing 'MOKE' found in this file.")
+
     # Print final summary
     if verbose:
         print(f"\n{'=' * 80}")
@@ -1390,6 +1496,287 @@ def main(single_file=None, verbose=True, include_mass_fraction=False):
     else:
         if verbose:
             print("\nNo data available to generate YAML files.")
+
+
+def find_moke_groups(file_path):
+    """
+    Find first-level groups containing 'MOKE' in their name within an HDF5 file.
+
+    Args:
+        file_path (str): Path to the HDF5 file
+
+    Returns:
+        list: List of first-level group paths containing 'MOKE' in their name
+    """
+    moke_groups = []
+
+    try:
+        with h5py.File(file_path, "r") as f:
+            # Only check first-level groups (direct children of root)
+            for key in f.keys():
+                item = f[key]
+                if isinstance(item, h5py.Group) and "MOKE" in key:
+                    moke_groups.append(key)
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        return []
+
+    return moke_groups
+
+
+def process_moke_coordinates(file_path, moke_group, verbose=True):
+    """
+    Process MOKE group to extract coordinates from sub-group names and verify against instrument data.
+
+    Args:
+        file_path (str): Path to the HDF5 file
+        moke_group (str): Path to the MOKE group
+        verbose (bool): If True, print detailed output. If False, print minimal output.
+
+    Returns:
+        dict: Dictionary with coordinate data and verification results
+    """
+    MOKE_sample_coordinate_data = {}
+
+    try:
+        with h5py.File(file_path, "r") as f:
+            if moke_group in f:
+                group = f[moke_group]
+
+                for key in group.keys():
+                    item = group[key]
+                    if isinstance(item, h5py.Group):
+                        # Extract coordinates from group name
+                        x_name, y_name = extract_coordinates_from_name(key)
+                        if verbose:
+                            print(
+                                f"Processing MOKE group: {key} with coordinates ({x_name}, {y_name})"
+                            )
+                        if x_name is not None and y_name is not None:
+                            # This is a coordinate group, rename variable to sample_key
+                            sample_key = key
+                            # Get instrument positions
+                            if verbose:
+                                print(f"  - Found coordinates: ({x_name}, {y_name})")
+                            # Construct sample-group path
+                            sample_group_path = f"{moke_group}/{sample_key}"
+                            if verbose:
+                                print(
+                                    f"  - Constructed sample-group path: {sample_group_path}"
+                                )
+                            x_instrument, y_instrument, x_unit, y_unit = (
+                                get_instrument_positions(
+                                    file_path, sample_group_path, verbose
+                                )
+                            )
+
+                            # Get MOKE data from results sub-group
+                            moke_data = get_moke_data(
+                                file_path, sample_group_path, verbose
+                            )
+
+                            # Store data
+                            MOKE_sample_coordinate_data[sample_key] = {
+                                "x_pos_MOKE": x_name,
+                                "y_pos_MOKE": y_name,
+                                "x_pos_instrument": x_instrument,
+                                "y_pos_instrument": y_instrument,
+                                "x_pos_unit": x_unit,
+                                "y_pos_unit": y_unit,
+                                "moke_data": moke_data,
+                                "x_match": x_instrument is not None
+                                and abs(x_name - x_instrument) < 1e-6,
+                                "y_match": y_instrument is not None
+                                and abs(y_name - y_instrument) < 1e-6,
+                            }
+
+    except Exception as e:
+        if verbose:
+            print(f"Error processing MOKE coordinates for {moke_group}: {e}")
+
+    return MOKE_sample_coordinate_data
+
+
+def get_moke_data(file_path, sample_group_path, verbose=True):
+    """
+    Extract MOKE data from the 'results' sub-group, specifically the mean value of coercivity_m0.
+
+    Args:
+        file_path (str): Path to the HDF5 file
+        sample_group_path (str): Path to the sample group
+        verbose (bool): If True, print detailed output. If False, print minimal output.
+
+    Returns:
+        dict: Dictionary with MOKE data and verification results
+    """
+    moke_data = {}
+
+    try:
+        with h5py.File(file_path, "r") as f:
+            results_path = f"{sample_group_path}/results"
+
+            if results_path in f:
+                if verbose:
+                    print(f"Reading MOKE results data from: {results_path}")
+                results_group = f[results_path]
+
+                # Look for coercivity_m0 dataset
+                if "coercivity_m0" in results_group:
+                    coercivity_m0_group = results_group["coercivity_m0"]
+                    if verbose:
+                        print("Found 'coercivity_m0' in results group.")
+
+                    # Get mean value if available
+                    if "mean" in coercivity_m0_group:
+                        mean_dataset = coercivity_m0_group["mean"]
+                        mean_value = float(mean_dataset[()])
+                        if verbose:
+                            print(f"  Coercivity mean value: {mean_value}")
+
+                        # Extract unit attribute if it exists
+                        unit = None
+                        if "units" in mean_dataset.attrs:
+                            unit = mean_dataset.attrs["units"]
+                            if isinstance(unit, bytes):
+                                unit = unit.decode("utf-8")
+                            if verbose:
+                                print(f"  Coercivity unit: {unit}")
+
+                        moke_data = {
+                            "coercivity_mean": mean_value,
+                            "coercivity_unit": unit,
+                            "data_available": True,
+                        }
+                    else:
+                        if verbose:
+                            print("  No 'mean' dataset found in coercivity_m0")
+                        moke_data = {
+                            "data_available": False,
+                            "error": "No mean value found",
+                        }
+                else:
+                    if verbose:
+                        print("  No 'coercivity_m0' found in results")
+                    moke_data = {
+                        "data_available": False,
+                        "error": "No coercivity_m0 found",
+                    }
+            else:
+                if verbose:
+                    print(f"No 'results' group found in {sample_group_path}")
+                moke_data = {"data_available": False, "error": "No results group found"}
+
+    except Exception as e:
+        if verbose:
+            print(f"Error reading MOKE data from {sample_group_path}: {e}")
+        moke_data = {"data_available": False, "error": str(e)}
+
+    return moke_data
+
+
+def merge_edx_and_moke_data(all_coordinate_data):
+    """
+    Merge EDX and MOKE data for samples at the same coordinates.
+
+    Args:
+        all_coordinate_data (dict): Dictionary containing both EDX and MOKE data
+
+    Returns:
+        dict: Merged data organized by coordinates
+    """
+    merged_data = {}
+
+    for filename, file_data in all_coordinate_data.items():
+        file_base = os.path.splitext(filename)[0]
+        merged_data[filename] = {}
+
+        # Collect all coordinate data from EDX and MOKE groups
+        coordinate_map = {}  # Maps (x, y) coordinates to combined data
+
+        for group_name, samples in file_data.items():
+            for sample_key, sample_data in samples.items():
+                # Get coordinates (prefer instrument coordinates)
+                x_pos = sample_data.get("x_pos_instrument")
+                y_pos = sample_data.get("y_pos_instrument")
+
+                # Fallback to group-specific coordinates if instrument coordinates not available
+                if x_pos is None:
+                    x_pos = sample_data.get("x_pos_EDX") or sample_data.get(
+                        "x_pos_MOKE", 0.0
+                    )
+                if y_pos is None:
+                    y_pos = sample_data.get("y_pos_EDX") or sample_data.get(
+                        "y_pos_MOKE", 0.0
+                    )
+
+                coord_key = (x_pos, y_pos)
+
+                # Initialize coordinate entry if not exists
+                if coord_key not in coordinate_map:
+                    coordinate_map[coord_key] = {
+                        "x_pos_instrument": x_pos,
+                        "y_pos_instrument": y_pos,
+                        "x_pos_unit": sample_data.get("x_pos_unit", ""),
+                        "y_pos_unit": sample_data.get("y_pos_unit", ""),
+                        "has_edx": False,
+                        "has_moke": False,
+                        "sample_key": sample_key,
+                        "group_names": [],
+                    }
+
+                # Merge data based on group type
+                if "EDX" in group_name:
+                    coordinate_map[coord_key]["has_edx"] = True
+                    coordinate_map[coord_key]["elements"] = sample_data.get(
+                        "elements", {}
+                    )
+                    coordinate_map[coord_key]["x_pos_EDX"] = sample_data.get(
+                        "x_pos_EDX"
+                    )
+                    coordinate_map[coord_key]["y_pos_EDX"] = sample_data.get(
+                        "y_pos_EDX"
+                    )
+                    coordinate_map[coord_key]["x_match"] = sample_data.get(
+                        "x_match", False
+                    )
+                    coordinate_map[coord_key]["y_match"] = sample_data.get(
+                        "y_match", False
+                    )
+
+                elif "MOKE" in group_name:
+                    coordinate_map[coord_key]["has_moke"] = True
+                    coordinate_map[coord_key]["moke_data"] = sample_data.get(
+                        "moke_data", {}
+                    )
+                    coordinate_map[coord_key]["x_pos_MOKE"] = sample_data.get(
+                        "x_pos_MOKE"
+                    )
+                    coordinate_map[coord_key]["y_pos_MOKE"] = sample_data.get(
+                        "y_pos_MOKE"
+                    )
+                    # Update match status if not already set by EDX
+                    if not coordinate_map[coord_key].get("x_match", False):
+                        coordinate_map[coord_key]["x_match"] = sample_data.get(
+                            "x_match", False
+                        )
+                    if not coordinate_map[coord_key].get("y_match", False):
+                        coordinate_map[coord_key]["y_match"] = sample_data.get(
+                            "y_match", False
+                        )
+
+                coordinate_map[coord_key]["group_names"].append(group_name)
+
+        # Convert coordinate map back to group structure for compatibility
+        combined_group_name = f"{file_base}_Combined"
+        merged_data[filename][combined_group_name] = {}
+
+        for coord_key, merged_sample_data in coordinate_map.items():
+            x_pos, y_pos = coord_key
+            # Create a new sample key based on coordinates
+            sample_key = f"({x_pos},{y_pos})"
+            merged_data[filename][combined_group_name][sample_key] = merged_sample_data
+
+    return merged_data
 
 
 if __name__ == "__main__":
