@@ -212,13 +212,14 @@ def process_edx_coordinates(file_path, edx_group):
 def get_element_data(file_path, sample_group_path):
     """
     Extract chemical elements from the 'results' sub-group and verify element names against atomic numbers.
+    Only includes elements that have an 'AtomPercent' field.
 
     Args:
         file_path (str): Path to the HDF5 file
         sample_group_path (str): Path to the sample group
 
     Returns:
-        dict: Dictionary with element data and verification results
+        dict: Dictionary with element data and verification results (only for elements with AtomPercent)
     """
     element_data = {}
 
@@ -250,18 +251,29 @@ def get_element_data(file_path, sample_group_path):
                             )
                             symbol_match = expected_symbol == element_symbol
 
-                            element_data[element_symbol] = {
-                                "group_name": key,
-                                "element_symbol": element_symbol,
-                                "atomic_number": int(atomic_number),
-                                "expected_symbol": expected_symbol,
-                                "symbol_match": symbol_match,
-                            }
+                            # Get AtomPercent value if available
+                            atom_percent = get_atom_percent_for_element(element_group)
 
-                            print(
-                                f"  Expected symbol for atomic number {int(atomic_number)}: {expected_symbol}"
-                            )
-                            print(f"  Symbol match: {'✓' if symbol_match else '✗'}")
+                            # Only include elements that have AtomPercent field
+                            if atom_percent is not None:
+                                element_data[element_symbol] = {
+                                    "group_name": key,
+                                    "element_symbol": element_symbol,
+                                    "atomic_number": int(atomic_number),
+                                    "expected_symbol": expected_symbol,
+                                    "symbol_match": symbol_match,
+                                    "atom_percent": atom_percent,
+                                }
+
+                                print(
+                                    f"  Expected symbol for atomic number {int(atomic_number)}: {expected_symbol}"
+                                )
+                                print(f"  Symbol match: {'✓' if symbol_match else '✗'}")
+                                print(f"  AtomPercent: {atom_percent}")
+                            else:
+                                print(
+                                    f"  Skipping element {element_symbol}: No AtomPercent field found"
+                                )
             else:
                 print(f"No 'results' group found in {sample_group_path}")
 
@@ -269,6 +281,28 @@ def get_element_data(file_path, sample_group_path):
         print(f"Error reading element data from {sample_group_path}: {e}")
 
     return element_data
+
+
+def get_atom_percent_for_element(element_group):
+    """
+    Get AtomPercent value from an element group if present.
+
+    Args:
+        element_group (h5py.Group): HDF5 group for the element
+
+    Returns:
+        float or None: AtomPercent value if found, None otherwise
+    """
+    try:
+        if "AtomPercent" in element_group:
+            atom_percent_dataset = element_group["AtomPercent"]
+            atom_percent = float(atom_percent_dataset[()])
+            return atom_percent
+        else:
+            return None
+    except Exception as e:
+        print(f"  Error reading AtomPercent: {e}")
+        return None
 
 
 def get_element_symbol_from_atomic_number(atomic_number):
@@ -444,12 +478,15 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
             # Create elemental composition entries
             elemental_entries = []
             for element_symbol, element_info in elements.items():
-                if element_info.get(
-                    "symbol_match", False
-                ):  # Only include verified elements
+                if (
+                    element_info.get("symbol_match", False)
+                    and element_info.get("atom_percent") is not None
+                ):  # Only include verified elements with AtomPercent
+                    atom_percent = element_info.get("atom_percent", 0.0)
+                    # Convert atom percent to atomic fraction (divide by 100)
+                    atomic_fraction = atom_percent / 100.0
                     entry = f"""    - element: {element_symbol}
-      atomic_fraction: 1.234
-      mass_fraction: 9.876"""
+      atomic_fraction: {atomic_fraction:.6f}
                     elemental_entries.append(entry)
 
             if elemental_entries:
