@@ -1,6 +1,8 @@
 import h5py
 import os
 import re
+import zipfile
+from datetime import datetime
 
 
 def find_edx_groups(file_path):
@@ -29,37 +31,44 @@ def find_edx_groups(file_path):
     return edx_groups
 
 
-def list_group_entries(file_path, group_path):
+def list_group_entries(file_path, group_path, verbose=True):
     """
     List all entries (groups and datasets) within a specific group.
 
     Args:
         file_path (str): Path to the HDF5 file
         group_path (str): Path to the group within the HDF5 file
+        verbose (bool): If True, print detailed output. If False, print minimal output.
     """
     try:
         with h5py.File(file_path, "r") as f:
             if group_path in f:
                 group = f[group_path]
-                print(f"\nEntries in group '{group_path}':")
-                print("-" * 50)
+                if verbose:
+                    print(f"\nEntries in group '{group_path}':")
+                    print("-" * 50)
 
-                for key in group.keys():
-                    item = group[key]
-                    if isinstance(item, h5py.Group):
-                        print(f"  [GROUP]   {key}")
-                    elif isinstance(item, h5py.Dataset):
-                        shape = item.shape
-                        dtype = item.dtype
-                        print(f"  [DATASET] {key} - Shape: {shape}, Type: {dtype}")
-                    else:
-                        print(f"  [OTHER]   {key}")
+                    for key in group.keys():
+                        item = group[key]
+                        if isinstance(item, h5py.Group):
+                            print(f"  [GROUP]   {key}")
+                        elif isinstance(item, h5py.Dataset):
+                            shape = item.shape
+                            dtype = item.dtype
+                            print(f"  [DATASET] {key} - Shape: {shape}, Type: {dtype}")
+                        else:
+                            print(f"  [OTHER]   {key}")
 
-                print(f"\nTotal entries: {len(group.keys())}")
+                    print(f"\nTotal entries: {len(group.keys())}")
+                return len(group.keys())
             else:
-                print(f"Group '{group_path}' not found in file.")
+                if verbose:
+                    print(f"Group '{group_path}' not found in file.")
+                return 0
     except Exception as e:
-        print(f"Error accessing group {group_path} in file {file_path}: {e}")
+        if verbose:
+            print(f"Error accessing group {group_path} in file {file_path}: {e}")
+        return 0
 
 
 def extract_coordinates_from_name(name):
@@ -83,13 +92,14 @@ def extract_coordinates_from_name(name):
     return None, None
 
 
-def get_instrument_positions(file_path, group_path):
+def get_instrument_positions(file_path, group_path, verbose=True):
     """
     Get x_pos and y_pos values and their units from the 'instrument' subfolder.
 
     Args:
         file_path (str): Path to the HDF5 file
         group_path (str): Path to the parent group
+        verbose (bool): If True, print detailed output. If False, print minimal output.
 
     Returns:
         tuple: (x_pos, y_pos, x_unit, y_unit) or (None, None, None, None) if not found
@@ -99,7 +109,8 @@ def get_instrument_positions(file_path, group_path):
             instrument_path = f"{group_path}/instrument"
 
             if instrument_path in f:
-                print(f"Reading instrument data from: {instrument_path}")
+                if verbose:
+                    print(f"Reading instrument data from: {instrument_path}")
                 instrument_group = f[instrument_path]
 
                 x_pos = None
@@ -108,48 +119,56 @@ def get_instrument_positions(file_path, group_path):
                 y_unit = None
 
                 if "x_pos" in instrument_group:
-                    print("Found 'x_pos' in instrument group.")
+                    if verbose:
+                        print("Found 'x_pos' in instrument group.")
                     x_pos_data = instrument_group["x_pos"]
                     # For scalar 64-bit integer dataset
                     x_pos = float(x_pos_data[()])
-                    print(f"  x_pos value: {x_pos}")
+                    if verbose:
+                        print(f"  x_pos value: {x_pos}")
 
                     # Extract unit attribute if it exists
                     if "units" in x_pos_data.attrs:
                         x_unit = x_pos_data.attrs["units"]
                         if isinstance(x_unit, bytes):
                             x_unit = x_unit.decode("utf-8")
-                        print(f"  x_pos unit: {x_unit}")
+                        if verbose:
+                            print(f"  x_pos unit: {x_unit}")
 
                 if "y_pos" in instrument_group:
-                    print("Found 'y_pos' in instrument group.")
+                    if verbose:
+                        print("Found 'y_pos' in instrument group.")
                     y_pos_data = instrument_group["y_pos"]
                     # For scalar 64-bit integer dataset
                     y_pos = float(y_pos_data[()])
-                    print(f"  y_pos value: {y_pos}")
+                    if verbose:
+                        print(f"  y_pos value: {y_pos}")
 
                     # Extract unit attribute if it exists
                     if "units" in y_pos_data.attrs:
                         y_unit = y_pos_data.attrs["units"]
                         if isinstance(y_unit, bytes):
                             y_unit = y_unit.decode("utf-8")
-                        print(f"  y_pos unit: {y_unit}")
+                        if verbose:
+                            print(f"  y_pos unit: {y_unit}")
 
                 return x_pos, y_pos, x_unit, y_unit
 
     except Exception as e:
-        print(f"Error reading instrument data from {group_path}: {e}")
+        if verbose:
+            print(f"Error reading instrument data from {group_path}: {e}")
 
     return None, None, None, None
 
 
-def process_edx_coordinates(file_path, edx_group):
+def process_edx_coordinates(file_path, edx_group, verbose=True):
     """
     Process EDX group to extract coordinates from sub-group names and verify against instrument data.
 
     Args:
         file_path (str): Path to the HDF5 file
         edx_group (str): Path to the EDX group
+        verbose (bool): If True, print detailed output. If False, print minimal output.
 
     Returns:
         dict: Dictionary with coordinate data and verification results
@@ -166,26 +185,31 @@ def process_edx_coordinates(file_path, edx_group):
                     if isinstance(item, h5py.Group):
                         # Extract coordinates from group name
                         x_name, y_name = extract_coordinates_from_name(key)
-                        print(
-                            f"Processing group: {key} with coordinates ({x_name}, {y_name})"
-                        )
+                        if verbose:
+                            print(
+                                f"Processing group: {key} with coordinates ({x_name}, {y_name})"
+                            )
                         if x_name is not None and y_name is not None:
                             # This is a coordinate group, rename variable to sample_key
                             sample_key = key
                             # Get instrument positions
-                            print(f"  - Found coordinates: ({x_name}, {y_name})")
+                            if verbose:
+                                print(f"  - Found coordinates: ({x_name}, {y_name})")
                             # Construct sample-group path
                             sample_group_path = f"{edx_group}/{sample_key}"
-                            print(
-                                f"  - Constructed sample-group path: {sample_group_path}"
-                            )
+                            if verbose:
+                                print(
+                                    f"  - Constructed sample-group path: {sample_group_path}"
+                                )
                             x_instrument, y_instrument, x_unit, y_unit = (
-                                get_instrument_positions(file_path, sample_group_path)
+                                get_instrument_positions(
+                                    file_path, sample_group_path, verbose
+                                )
                             )
 
                             # Get element data from results sub-group
                             element_data = get_element_data(
-                                file_path, sample_group_path
+                                file_path, sample_group_path, verbose
                             )
 
                             # Store data
@@ -204,12 +228,13 @@ def process_edx_coordinates(file_path, edx_group):
                             }
 
     except Exception as e:
-        print(f"Error processing EDX coordinates for {edx_group}: {e}")
+        if verbose:
+            print(f"Error processing EDX coordinates for {edx_group}: {e}")
 
     return EDX_sample_coordinate_data
 
 
-def get_element_data(file_path, sample_group_path):
+def get_element_data(file_path, sample_group_path, verbose=True):
     """
     Extract chemical elements from the 'results' sub-group and verify element names against atomic numbers.
     Only includes elements that have an 'AtomPercent' field.
@@ -217,6 +242,7 @@ def get_element_data(file_path, sample_group_path):
     Args:
         file_path (str): Path to the HDF5 file
         sample_group_path (str): Path to the sample group
+        verbose (bool): If True, print detailed output. If False, print minimal output.
 
     Returns:
         dict: Dictionary with element data and verification results (only for elements with AtomPercent)
@@ -228,7 +254,8 @@ def get_element_data(file_path, sample_group_path):
             results_path = f"{sample_group_path}/results"
 
             if results_path in f:
-                print(f"Reading results data from: {results_path}")
+                if verbose:
+                    print(f"Reading results data from: {results_path}")
                 results_group = f[results_path]
 
                 for key in results_group.keys():
@@ -236,14 +263,18 @@ def get_element_data(file_path, sample_group_path):
                     if isinstance(item, h5py.Group) and key.startswith("Element "):
                         # Extract element symbol from group name (e.g., 'Element C' -> 'C')
                         element_symbol = key.replace("Element ", "").strip()
-                        print(f"Found element group: {key} -> Symbol: {element_symbol}")
+                        if verbose:
+                            print(
+                                f"Found element group: {key} -> Symbol: {element_symbol}"
+                            )
 
                         # Check if there's an 'Element' dataset with atomic number
                         element_group = item
                         if "Element" in element_group:
                             element_dataset = element_group["Element"]
                             atomic_number = float(element_dataset[()])
-                            print(f"  Atomic number from dataset: {atomic_number}")
+                            if verbose:
+                                print(f"  Atomic number from dataset: {atomic_number}")
 
                             # Verify if element symbol matches atomic number
                             expected_symbol = get_element_symbol_from_atomic_number(
@@ -265,20 +296,26 @@ def get_element_data(file_path, sample_group_path):
                                     "atom_percent": atom_percent,
                                 }
 
-                                print(
-                                    f"  Expected symbol for atomic number {int(atomic_number)}: {expected_symbol}"
-                                )
-                                print(f"  Symbol match: {'✓' if symbol_match else '✗'}")
-                                print(f"  AtomPercent: {atom_percent}")
+                                if verbose:
+                                    print(
+                                        f"  Expected symbol for atomic number {int(atomic_number)}: {expected_symbol}"
+                                    )
+                                    print(
+                                        f"  Symbol match: {'✓' if symbol_match else '✗'}"
+                                    )
+                                    print(f"  AtomPercent: {atom_percent}")
                             else:
-                                print(
-                                    f"  Skipping element {element_symbol}: No AtomPercent field found"
-                                )
+                                if verbose:
+                                    print(
+                                        f"  Skipping element {element_symbol}: No AtomPercent field found"
+                                    )
             else:
-                print(f"No 'results' group found in {sample_group_path}")
+                if verbose:
+                    print(f"No 'results' group found in {sample_group_path}")
 
     except Exception as e:
-        print(f"Error reading element data from {sample_group_path}: {e}")
+        if verbose:
+            print(f"Error reading element data from {sample_group_path}: {e}")
 
     return element_data
 
@@ -494,6 +531,25 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                 elemental_composition = "\n".join(elemental_entries)
                 # Find and replace the template elemental composition block
                 template_content = re.sub(
+                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$",
+                    f"elemental_composition:\n{elemental_composition}",
+                    template_content,
+                    flags=re.MULTILINE | re.DOTALL,
+                )
+            else:
+                # No verified elements found, remove elemental composition
+                template_content = re.sub(
+                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$",
+                    "elemental_composition: []",
+                    template_content,
+                    flags=re.MULTILINE | re.DOTALL,
+                )
+
+            if elemental_entries:
+                # Replace the template elemental composition with actual data
+                elemental_composition = "\n".join(elemental_entries)
+                # Find and replace the template elemental composition block
+                template_content = re.sub(
                     r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
                     f"elemental_composition:\n{elemental_composition}",
                     template_content,
@@ -599,10 +655,134 @@ def process_all_samples_to_yaml(all_coordinate_data, template_path, output_dir):
     return yaml_files_created
 
 
-def main():
+def create_upload_zip(hdf5_files, script_dir, datasets_dir, output_dir, verbose=True):
+    """
+    Create a zip file containing the original HDF5 files and all generated YAML files.
+
+    Args:
+        hdf5_files (list): List of HDF5 filenames that were processed
+        script_dir (str): Script directory path
+        datasets_dir (str): Directory containing HDF5 files
+        output_dir (str): Directory containing generated YAML files
+        verbose (bool): If True, print detailed output. If False, print minimal output.
+
+    Returns:
+        str: Path to the created zip file, or None if creation failed
+    """
+    try:
+        # Create uploads directory if it doesn't exist
+        uploads_dir = os.path.join(script_dir, "uploads")
+        if not os.path.exists(uploads_dir):
+            os.makedirs(uploads_dir)
+            if verbose:
+                print(f"Created uploads directory: {uploads_dir}")
+
+        # Generate timestamp for unique zip filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Determine zip filename based on processed files
+        if len(hdf5_files) == 1:
+            base_name = os.path.splitext(hdf5_files[0])[0]
+            zip_filename = f"{base_name}_{timestamp}.zip"
+        else:
+            zip_filename = f"NEEL_data_batch_{timestamp}.zip"
+
+        zip_path = os.path.join(uploads_dir, zip_filename)
+
+        # Create the zip file
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            files_added = 0
+
+            # Add HDF5 files
+            for hdf5_file in hdf5_files:
+                hdf5_path = os.path.join(datasets_dir, hdf5_file)
+                if os.path.exists(hdf5_path):
+                    zipf.write(hdf5_path, f"datasets/{hdf5_file}")
+                    files_added += 1
+                    if verbose:
+                        print(f"Added HDF5 file: {hdf5_file}")
+
+            # Add YAML files if output directory exists
+            if os.path.exists(output_dir):
+                yaml_files = [
+                    f for f in os.listdir(output_dir) if f.endswith((".yaml", ".yml"))
+                ]
+                for yaml_file in yaml_files:
+                    yaml_path = os.path.join(output_dir, yaml_file)
+                    zipf.write(yaml_path, f"generated_schemas/{yaml_file}")
+                    files_added += 1
+                    if verbose:
+                        print(f"Added YAML file: {yaml_file}")
+
+            # Add README file with processing information
+            readme_content = f"""# NEEL Data Processing Results
+
+Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## Contents:
+- datasets/: Original HDF5 files
+- generated_schemas/: Generated NOMAD schema YAML files
+
+## Processed Files:
+{chr(10).join([f"- {f}" for f in hdf5_files])}
+
+## YAML Files Generated: {len([f for f in os.listdir(output_dir) if f.endswith((".yaml", ".yml"))]) if os.path.exists(output_dir) else 0}
+
+This archive contains the original HDF5 data files and the corresponding NOMAD schema files
+generated from EDX analysis data with atomic composition information.
+"""
+            zipf.writestr("README.txt", readme_content)
+            files_added += 1
+
+        if verbose:
+            print(f"\nCreated zip file: {zip_filename}")
+            print(f"Location: {zip_path}")
+            print(f"Total files added: {files_added}")
+        else:
+            print(f"Created zip file: {zip_filename} ({files_added} files)")
+
+        return zip_path
+
+    except Exception as e:
+        if verbose:
+            print(f"Error creating zip file: {e}")
+        return None
+
+
+def process_single_file(filename="NdCeFeB_2-5.hdf5", verbose=True):
+    """
+    Process a single HDF5 file.
+
+    Args:
+        filename (str): Name of the HDF5 file to process (default: 'NdCeFeB_2-5.hdf5')
+        verbose (bool): If True, print detailed output. If False, print only summary.
+    """
+    main(single_file=filename, verbose=verbose)
+
+
+def process_all_files(verbose=True):
+    """
+    Process all HDF5 files in the datasets directory.
+
+    Args:
+        verbose (bool): If True, print detailed output. If False, print only summary.
+    """
+    main(single_file="", verbose=verbose)  # Empty string to force processing all files
+
+
+def main(single_file=None, verbose=True):
     """
     Main function to process HDF5 files in the datasets subfolder.
+
+    Args:
+        single_file (str, optional): Specific filename to process. If None, processes all HDF5 files.
+                                   Default: 'NdCeFeB_2-5.hdf5'
+        verbose (bool): If True, print detailed output. If False, print only summary.
     """
+    # Set default single file if none specified
+    if single_file is None:
+        single_file = "NdCeFeB_2-5.hdf5"
+
     # Define the datasets directory relative to the script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
     datasets_dir = os.path.join(script_dir, "datasets")
@@ -611,16 +791,36 @@ def main():
         print(f"Datasets directory not found: {datasets_dir}")
         return
 
-    # Get all HDF5 files in the datasets directory
-    hdf5_files = [f for f in os.listdir(datasets_dir) if f.endswith(".hdf5")]
+    # Determine which files to process
+    if single_file and single_file != "":
+        # Process only the specified file
+        single_file_path = os.path.join(datasets_dir, single_file)
+        if os.path.exists(single_file_path) and single_file.endswith(".hdf5"):
+            hdf5_files = [single_file]
+            print(f"Processing single file: {single_file}")
+        else:
+            print(f"Single file not found or not an HDF5 file: {single_file}")
+            print("Available HDF5 files in datasets directory:")
+            available_files = [
+                f for f in os.listdir(datasets_dir) if f.endswith(".hdf5")
+            ]
+            if available_files:
+                for i, filename in enumerate(available_files, 1):
+                    print(f"  {i}. {filename}")
+            else:
+                print("  No HDF5 files found.")
+            return
+    else:
+        # Get all HDF5 files in the datasets directory
+        hdf5_files = [f for f in os.listdir(datasets_dir) if f.endswith(".hdf5")]
 
-    if not hdf5_files:
-        print("No HDF5 files found in the datasets directory.")
-        return
+        if not hdf5_files:
+            print("No HDF5 files found in the datasets directory.")
+            return
 
-    print(f"Found {len(hdf5_files)} HDF5 file(s):")
-    for i, filename in enumerate(hdf5_files, 1):
-        print(f"  {i}. {filename}")
+        print(f"Processing all files - Found {len(hdf5_files)} HDF5 file(s):")
+        for i, filename in enumerate(hdf5_files, 1):
+            print(f"  {i}. {filename}")
 
     # Process each HDF5 file
     # Dictionary to store all coordinate data
@@ -635,17 +835,21 @@ def main():
 
     for filename in hdf5_files:
         file_path = os.path.join(datasets_dir, filename)
-        print(f"\n{'=' * 60}")
-        print(f"Processing file: {filename}")
-        print(f"{'=' * 60}")
+        if verbose:
+            print(f"\n{'=' * 60}")
+            print(f"Processing file: {filename}")
+            print(f"{'=' * 60}")
+        else:
+            print(f"Processing file: {filename}")
 
         # Find groups containing 'EDX'
         edx_groups = find_edx_groups(file_path)
 
         if edx_groups:
-            print(f"\nFound {len(edx_groups)} group(s) containing 'EDX':")
-            for group_path in edx_groups:
-                print(f"  - {group_path}")
+            if verbose:
+                print(f"\nFound {len(edx_groups)} group(s) containing 'EDX':")
+                for group_path in edx_groups:
+                    print(f"  - {group_path}")
 
             # Process coordinate data for each EDX group
             file_coordinate_data = {}
@@ -653,35 +857,39 @@ def main():
                 total_groups_processed += 1
 
                 # List entries for each EDX group
-                list_group_entries(file_path, group_path)
+                list_group_entries(file_path, group_path, verbose)
 
                 # Process coordinates
                 EDX_sample_coordinate_data = process_edx_coordinates(
-                    file_path, group_path
+                    file_path, group_path, verbose
                 )
                 if EDX_sample_coordinate_data:
                     file_coordinate_data[group_path] = EDX_sample_coordinate_data
                     total_coordinates_found += len(EDX_sample_coordinate_data)
 
                     # Print coordinate analysis
-                    print(f"\n--- Coordinate Analysis for {group_path} ---")
+                    if verbose:
+                        print(f"\n--- Coordinate Analysis for {group_path} ---")
                     for sample_group, data in EDX_sample_coordinate_data.items():
-                        print(f"Sample-group: {sample_group}")
-                        print(f"  x_pos_EDX: {data['x_pos_EDX']}")
-                        print(f"  y_pos_EDX: {data['y_pos_EDX']}")
-                        print(f"  x_pos_instrument: {data['x_pos_instrument']}")
-                        print(f"  y_pos_instrument: {data['y_pos_instrument']}")
-                        print(f"  x_pos_unit: {data['x_pos_unit']}")
-                        print(f"  y_pos_unit: {data['y_pos_unit']}")
+                        if verbose:
+                            print(f"Sample-group: {sample_group}")
+                            print(f"  x_pos_EDX: {data['x_pos_EDX']}")
+                            print(f"  y_pos_EDX: {data['y_pos_EDX']}")
+                            print(f"  x_pos_instrument: {data['x_pos_instrument']}")
+                            print(f"  y_pos_instrument: {data['y_pos_instrument']}")
+                            print(f"  x_pos_unit: {data['x_pos_unit']}")
+                            print(f"  y_pos_unit: {data['y_pos_unit']}")
 
                         x_status = "✓" if data["x_match"] else "✗"
                         y_status = "✓" if data["y_match"] else "✗"
-                        print(f"  X coordinate match: {x_status}")
-                        print(f"  Y coordinate match: {y_status}")
+                        if verbose:
+                            print(f"  X coordinate match: {x_status}")
+                            print(f"  Y coordinate match: {y_status}")
 
                         # Display element data
                         if data.get("elements"):
-                            print(f"  Elements found: {len(data['elements'])}")
+                            if verbose:
+                                print(f"  Elements found: {len(data['elements'])}")
                             total_elements_found += len(data["elements"])
                             for element_symbol, element_info in data[
                                 "elements"
@@ -689,69 +897,92 @@ def main():
                                 element_status = (
                                     "✓" if element_info["symbol_match"] else "✗"
                                 )
-                                print(
-                                    f"    {element_symbol} (Z={element_info['atomic_number']}): {element_status}"
-                                )
+                                if verbose:
+                                    print(
+                                        f"    {element_symbol} (Z={element_info['atomic_number']}): {element_status}"
+                                    )
                                 if element_info["symbol_match"]:
                                     total_element_matches += 1
                                 else:
                                     total_element_mismatches += 1
                         else:
-                            print("  No elements found")
+                            if verbose:
+                                print("  No elements found")
 
                         if data["x_match"] and data["y_match"]:
                             total_matches += 1
                         else:
                             total_mismatches += 1
-                        print()
+                        if verbose:
+                            print()
 
             if file_coordinate_data:
                 all_coordinate_data[filename] = file_coordinate_data
         else:
-            print("\nNo groups containing 'EDX' found in this file.")
+            if verbose:
+                print("\nNo groups containing 'EDX' found in this file.")
 
     # Print final summary
-    print(f"\n{'=' * 80}")
-    print("FINAL SUMMARY")
-    print(f"{'=' * 80}")
-    print(f"Files processed: {len(hdf5_files)}")
-    print(f"EDX groups processed: {total_groups_processed}")
-    print(f"Coordinate pairs found: {total_coordinates_found}")
-    print(f"Coordinate matches: {total_matches}")
-    print(f"Coordinate mismatches: {total_mismatches}")
-    print(f"Elements found: {total_elements_found}")
-    print(f"Element symbol matches: {total_element_matches}")
-    print(f"Element symbol mismatches: {total_element_mismatches}")
+    if verbose:
+        print(f"\n{'=' * 80}")
+        print("FINAL SUMMARY")
+        print(f"{'=' * 80}")
+        print(f"Files processed: {len(hdf5_files)}")
+        print(f"EDX groups processed: {total_groups_processed}")
+        print(f"Coordinate pairs found: {total_coordinates_found}")
+        print(f"Coordinate matches: {total_matches}")
+        print(f"Coordinate mismatches: {total_mismatches}")
+        print(f"Elements found: {total_elements_found}")
+        print(f"Element symbol matches: {total_element_matches}")
+        print(f"Element symbol mismatches: {total_element_mismatches}")
 
-    if total_coordinates_found > 0:
-        coord_success_rate = (total_matches / total_coordinates_found) * 100
-        print(f"Coordinate success rate: {coord_success_rate:.1f}%")
+        if total_coordinates_found > 0:
+            coord_success_rate = (total_matches / total_coordinates_found) * 100
+            print(f"Coordinate success rate: {coord_success_rate:.1f}%")
 
-        if total_matches == total_coordinates_found:
-            print("✓ ALL COORDINATE CHECKS PASSED!")
+            if total_matches == total_coordinates_found:
+                print("✓ ALL COORDINATE CHECKS PASSED!")
+            else:
+                print("⚠ Some coordinate mismatches found.")
         else:
-            print("⚠ Some coordinate mismatches found.")
-    else:
-        print("No coordinate data found to verify.")
+            print("No coordinate data found to verify.")
 
-    if total_elements_found > 0:
-        element_success_rate = (total_element_matches / total_elements_found) * 100
-        print(f"Element verification success rate: {element_success_rate:.1f}%")
+        if total_elements_found > 0:
+            element_success_rate = (total_element_matches / total_elements_found) * 100
+            print(f"Element verification success rate: {element_success_rate:.1f}%")
 
-        if total_element_matches == total_elements_found:
-            print("✓ ALL ELEMENT VERIFICATIONS PASSED!")
+            if total_element_matches == total_elements_found:
+                print("✓ ALL ELEMENT VERIFICATIONS PASSED!")
+            else:
+                print("⚠ Some element symbol mismatches found.")
         else:
-            print("⚠ Some element symbol mismatches found.")
-    else:
-        print("No element data found to verify.")
+            print("No element data found to verify.")
 
-    print(f"{'=' * 80}")
+        print(f"{'=' * 80}")
+    else:
+        # Short summary
+        print(
+            f"\nSUMMARY: Processed {len(hdf5_files)} file(s), found {total_coordinates_found} coordinate pairs, {total_elements_found} elements"
+        )
+        if total_coordinates_found > 0:
+            coord_success_rate = (total_matches / total_coordinates_found) * 100
+            print(
+                f"Coordinate success: {total_matches}/{total_coordinates_found} ({coord_success_rate:.1f}%)"
+            )
+        if total_elements_found > 0:
+            element_success_rate = (total_element_matches / total_elements_found) * 100
+            print(
+                f"Element verification: {total_element_matches}/{total_elements_found} ({element_success_rate:.1f}%)"
+            )
 
     # Generate YAML files from template if we have data
     if all_coordinate_data:
-        print("\n" + "=" * 80)
-        print("GENERATING YAML FILES FROM TEMPLATE")
-        print("=" * 80)
+        if verbose:
+            print("\n" + "=" * 80)
+            print("GENERATING YAML FILES FROM TEMPLATE")
+            print("=" * 80)
+        else:
+            print("\nGenerating YAML files...")
 
         # Define paths
         template_path = os.path.join(script_dir, "NEEL_template.archive.yaml")
@@ -762,11 +993,39 @@ def main():
                 all_coordinate_data, template_path, output_dir
             )
             print(f"Successfully generated {yaml_files_created} YAML schema files!")
+
+            # Create upload zip file
+            if verbose:
+                print("\n" + "=" * 40)
+                print("CREATING UPLOAD ZIP FILE")
+                print("=" * 40)
+            else:
+                print("\nCreating upload zip file...")
+
+            zip_file_path = create_upload_zip(
+                hdf5_files, script_dir, datasets_dir, output_dir, verbose
+            )
+            if zip_file_path:
+                if verbose:
+                    print(f"✓ Upload zip file ready: {os.path.basename(zip_file_path)}")
+                else:
+                    print(f"✓ Upload zip ready: {os.path.basename(zip_file_path)}")
+            else:
+                print("✗ Failed to create upload zip file.")
         else:
             print(f"Template file not found: {template_path}")
     else:
-        print("\nNo data available to generate YAML files.")
+        if verbose:
+            print("\nNo data available to generate YAML files.")
 
 
 if __name__ == "__main__":
+    # Default: process only NdCeFeB_2-5.hdf5
     main()
+
+    # Alternative usage examples:
+    # process_single_file()                           # Process default file (NdCeFeB_2-5.hdf5)
+    # process_single_file("another_file.hdf5")        # Process a specific file
+    # process_all_files()                             # Process all files in datasets directory
+    # main(single_file="specific_file.hdf5")          # Direct call with specific file
+    # main(single_file="")                            # Direct call to process all files
