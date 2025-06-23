@@ -7,6 +7,8 @@ from datetime import datetime
 # TODO: Implement extraction of Hc
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
+# TODO: fix missing newline between  ypos and  elemental_composition:
+# TODO: check unit of Hc in NEEL data
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
