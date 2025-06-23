@@ -486,7 +486,7 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                     # Convert atom percent to atomic fraction (divide by 100)
                     atomic_fraction = atom_percent / 100.0
                     entry = f"""    - element: {element_symbol}
-      atomic_fraction: {atomic_fraction:.6f}
+      atomic_fraction: {atomic_fraction:.6f}"""
                     elemental_entries.append(entry)
 
             if elemental_entries:
