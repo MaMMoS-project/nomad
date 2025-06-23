@@ -367,6 +367,9 @@ def get_element_data(file_path, sample_group_path, verbose=True):
                             # Get AtomPercent value if available
                             atom_percent = get_atom_percent_for_element(element_group)
 
+                            # Get MassPercent value if available
+                            mass_percent = get_mass_percent_for_element(element_group)
+
                             # Only include elements that have AtomPercent field
                             if atom_percent is not None:
                                 element_data[element_symbol] = {
@@ -376,6 +379,7 @@ def get_element_data(file_path, sample_group_path, verbose=True):
                                     "expected_symbol": expected_symbol,
                                     "symbol_match": symbol_match,
                                     "atom_percent": atom_percent,
+                                    "mass_percent": mass_percent,  # Can be None if not available
                                 }
 
                                 if verbose:
@@ -386,6 +390,10 @@ def get_element_data(file_path, sample_group_path, verbose=True):
                                         f"  Symbol match: {'✓' if symbol_match else '✗'}"
                                     )
                                     print(f"  AtomPercent: {atom_percent}")
+                                    if mass_percent is not None:
+                                        print(f"  MassPercent: {mass_percent}")
+                                    else:
+                                        print("  MassPercent: Not available")
                             else:
                                 if verbose:
                                     print(
@@ -440,6 +448,28 @@ def get_atom_percent_for_element(element_group):
             return None
     except Exception as e:
         print(f"  Error reading AtomPercent: {e}")
+        return None
+
+
+def get_mass_percent_for_element(element_group):
+    """
+    Get MassPercent value from an element group if present.
+
+    Args:
+        element_group (h5py.Group): HDF5 group for the element
+
+    Returns:
+        float or None: MassPercent value if found, None otherwise
+    """
+    try:
+        if "MassPercent" in element_group:
+            mass_percent_dataset = element_group["MassPercent"]
+            mass_percent = float(mass_percent_dataset[()])
+            return mass_percent
+        else:
+            return None
+    except Exception as e:
+        print(f"  Error reading MassPercent: {e}")
         return None
 
 
@@ -621,10 +651,22 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                     and element_info.get("atom_percent") is not None
                 ):  # Only include verified elements with AtomPercent
                     atom_percent = element_info.get("atom_percent", 0.0)
+                    mass_percent = element_info.get("mass_percent")
+
                     # Convert atom percent to atomic fraction (divide by 100)
                     atomic_fraction = atom_percent / 100.0
-                    entry = f"""    - element: {element_symbol}
+
+                    # Convert mass percent to mass fraction (divide by 100) if available
+                    if mass_percent is not None:
+                        mass_fraction = mass_percent / 100.0
+                        entry = f"""    - element: {element_symbol}
+      atomic_fraction: {atomic_fraction:.6f}
+      mass_fraction: {mass_fraction:.6f}"""
+                    else:
+                        # If mass_percent is not available, omit mass_fraction
+                        entry = f"""    - element: {element_symbol}
       atomic_fraction: {atomic_fraction:.6f}"""
+
                     elemental_entries.append(entry)
 
             if elemental_entries:
@@ -632,16 +674,8 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                 elemental_composition = "\n".join(elemental_entries)
                 # Find and replace the template elemental composition block
                 template_content = re.sub(
-                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$",
+                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
                     f"elemental_composition:\n{elemental_composition}",
-                    template_content,
-                    flags=re.MULTILINE | re.DOTALL,
-                )
-            else:
-                # No verified elements found, remove elemental composition
-                template_content = re.sub(
-                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$",
-                    "elemental_composition: []",
                     template_content,
                     flags=re.MULTILINE | re.DOTALL,
                 )
@@ -683,6 +717,7 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
 
         # Check if we have only Nd, Ce, Fe elements and compute compound formula
         compound_formula_comment = ""
+        compound_formula = ""
         if elements:
             is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction = (
                 check_for_nd_ce_fe_only(elements)
@@ -697,9 +732,20 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                     compound_formula_comment = (
                         f"# Computed compound formula: {compound_formula}\n"
                     )
-                    print(
-                        f"Adding compound formula comment to YAML: {compound_formula}"
-                    )
+                    print(f"Adding compound formula to YAML: {compound_formula}")
+
+        # Replace chemical formula placeholder
+        if compound_formula:
+            template_content = template_content.replace(
+                "$$chemical_formula$$", compound_formula
+            )
+        else:
+            # Remove the chemical formula field if no formula can be computed
+            template_content = re.sub(
+                r"\s*chemical_formula:\s*\$\$chemical_formula\$\$\s*\n",
+                "",
+                template_content,
+            )
 
         # Add compound formula comment at the beginning if available
         if compound_formula_comment:
