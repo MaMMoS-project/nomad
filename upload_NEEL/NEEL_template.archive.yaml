@@ -54,8 +54,8 @@ definitions:
                 type: str
               atomic_fraction:
                 type: np.float64
-              mass_fraction:
-                type: np.float64
+              # mass_fraction:
+              #   type: np.float64
 data:
   m_def: Sample
   description: "Sample from NEEL wafer with x and y positions and chemical elementals"
@@ -79,5 +79,5 @@ data:
   elemental_composition:
     - element: $$element$$
       atomic_fraction: $$atomic_fraction$$
-      mass_fraction: $$mass_fraction$$
+      # mass_fraction: $$mass_fraction$$
 

@@ -671,7 +671,54 @@ def get_element_symbol_from_atomic_number(atomic_number):
     return periodic_table.get(atomic_number, "Unknown")
 
 
-def create_yaml_from_template(template_path, output_path, sample_data, sample_key):
+def handle_mass_fraction_template(template_content, include_mass_fraction):
+    """
+    Handle mass_fraction related modifications in the template content.
+
+    Args:
+        template_content (str): The template content
+        include_mass_fraction (bool): Whether to include mass_fraction in the output
+
+    Returns:
+        str: Modified template content
+    """
+    if include_mass_fraction:
+        # Uncomment mass_fraction lines in the template
+        # Uncomment in quantities section
+        template_content = re.sub(
+            r"(\s*)# mass_fraction:\s*\n(\s*)#\s*type:\s*np\.float64",
+            r"\1mass_fraction:\n\2  type: np.float64",
+            template_content,
+            flags=re.MULTILINE,
+        )
+        # Uncomment in data section
+        template_content = re.sub(
+            r"(\s*)# mass_fraction:\s*\$\$mass_fraction\$\$",
+            r"\1mass_fraction: $$mass_fraction$$",
+            template_content,
+        )
+    else:
+        # Ensure mass_fraction lines are commented out
+        # Comment in quantities section if not already commented
+        template_content = re.sub(
+            r"(\s*)mass_fraction:\s*\n(\s*)type:\s*np\.float64",
+            r"\1# mass_fraction:\n\2#   type: np.float64",
+            template_content,
+            flags=re.MULTILINE,
+        )
+        # Comment in data section if not already commented
+        template_content = re.sub(
+            r"(\s*)mass_fraction:\s*\$\$mass_fraction\$\$",
+            r"\1# mass_fraction: $$mass_fraction$$",
+            template_content,
+        )
+
+    return template_content
+
+
+def create_yaml_from_template(
+    template_path, output_path, sample_data, sample_key, include_mass_fraction=False
+):
     """
     Create a YAML file from template by replacing placeholders with actual data.
 
@@ -680,11 +727,17 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
         output_path (str): Path for the output YAML file
         sample_data (dict): Sample data containing coordinates and elements
         sample_key (str): Sample key (coordinate group name)
+        include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
     """
     try:
         # Read template file
         with open(template_path, "r", encoding="utf-8") as f:
             template_content = f.read()
+
+        # Handle mass_fraction template modifications
+        template_content = handle_mass_fraction_template(
+            template_content, include_mass_fraction
+        )
 
         # Extract coordinate data
         x_pos = sample_data.get("x_pos_instrument") or sample_data.get("x_pos_EDX", 0.0)
@@ -752,14 +805,14 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
                         else:
                             comment = "  # Recalculated from formula Nd_aCe_bFe_14B"
 
-                    # Convert mass percent to mass fraction (divide by 100) if available
-                    if mass_percent is not None:
+                    # Convert mass percent to mass fraction (divide by 100) if available and requested
+                    if include_mass_fraction and mass_percent is not None:
                         mass_fraction = mass_percent / 100.0
                         entry = f"""    - element: {element_symbol}
       atomic_fraction: {atomic_fraction:.6f}
       mass_fraction: {mass_fraction:.6f}{comment}"""
                     else:
-                        # If mass_percent is not available, omit mass_fraction
+                        # If mass_percent is not available or not requested, omit mass_fraction
                         entry = f"""    - element: {element_symbol}
       atomic_fraction: {atomic_fraction:.6f}{comment}"""
 
@@ -768,40 +821,73 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
             if elemental_entries:
                 # Replace the template elemental composition with actual data
                 elemental_composition = "\n".join(elemental_entries)
-                # Find and replace the template elemental composition block
-                template_content = re.sub(
-                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
-                    f"elemental_composition:\n{elemental_composition}",
-                    template_content,
-                    flags=re.MULTILINE | re.DOTALL,
-                )
 
-            if elemental_entries:
-                # Replace the template elemental composition with actual data
-                elemental_composition = "\n".join(elemental_entries)
-                # Find and replace the template elemental composition block
-                template_content = re.sub(
-                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
-                    f"elemental_composition:\n{elemental_composition}",
+                # Try to match template with mass_fraction first (both commented and uncommented)
+                mass_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*(#\s*)?mass_fraction:\s*\$\$mass_fraction\$\$"
+                if re.search(
+                    mass_fraction_pattern,
                     template_content,
                     flags=re.MULTILINE | re.DOTALL,
-                )
+                ):
+                    template_content = re.sub(
+                        mass_fraction_pattern,
+                        f"elemental_composition:\n{elemental_composition}",
+                        template_content,
+                        flags=re.MULTILINE | re.DOTALL,
+                    )
+                else:
+                    # Try to match template without mass_fraction
+                    atomic_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$"
+                    template_content = re.sub(
+                        atomic_fraction_pattern,
+                        f"elemental_composition:\n{elemental_composition}",
+                        template_content,
+                        flags=re.MULTILINE | re.DOTALL,
+                    )
             else:
                 # No verified elements found, remove elemental composition
+                mass_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*(#\s*)?mass_fraction:\s*\$\$mass_fraction\$\$"
+                if re.search(
+                    mass_fraction_pattern,
+                    template_content,
+                    flags=re.MULTILINE | re.DOTALL,
+                ):
+                    template_content = re.sub(
+                        mass_fraction_pattern,
+                        "elemental_composition: []",
+                        template_content,
+                        flags=re.MULTILINE | re.DOTALL,
+                    )
+                else:
+                    # Try to match template without mass_fraction
+                    atomic_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$"
+                    template_content = re.sub(
+                        atomic_fraction_pattern,
+                        "elemental_composition: []",
+                        template_content,
+                        flags=re.MULTILINE | re.DOTALL,
+                    )
+        else:
+            # No elements found, remove elemental composition
+            mass_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*(#\s*)?mass_fraction:\s*\$\$mass_fraction\$\$"
+            if re.search(
+                mass_fraction_pattern, template_content, flags=re.MULTILINE | re.DOTALL
+            ):
                 template_content = re.sub(
-                    r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
+                    mass_fraction_pattern,
                     "elemental_composition: []",
                     template_content,
                     flags=re.MULTILINE | re.DOTALL,
                 )
-        else:
-            # No elements found, remove elemental composition
-            template_content = re.sub(
-                r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$\s*mass_fraction:\s*\$\$mass_fraction\$\$",
-                "elemental_composition: []",
-                template_content,
-                flags=re.MULTILINE | re.DOTALL,
-            )
+            else:
+                # Try to match template without mass_fraction
+                atomic_fraction_pattern = r"elemental_composition:\s*-\s*element:\s*\$\$element\$\$\s*atomic_fraction:\s*\$\$atomic_fraction\$\$"
+                template_content = re.sub(
+                    atomic_fraction_pattern,
+                    "elemental_composition: []",
+                    template_content,
+                    flags=re.MULTILINE | re.DOTALL,
+                )
 
         # Update the short_name to include sample coordinates
         coords_str = sample_key.replace("(", "").replace(")", "").replace(",", "_")
@@ -847,6 +933,38 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
         if compound_formula_comment:
             template_content = compound_formula_comment + template_content
 
+        # Handle mass_fraction related modifications in the template
+        if include_mass_fraction:
+            # Uncomment mass_fraction lines in the template
+            # Uncomment in quantities section
+            template_content = re.sub(
+                r"(\s*)# mass_fraction:\s*\n(\s*)#\s*type:\s*np\.float64",
+                r"\1mass_fraction:\n\2  type: np.float64",
+                template_content,
+                flags=re.MULTILINE,
+            )
+            # Uncomment in data section
+            template_content = re.sub(
+                r"(\s*)# mass_fraction:\s*\$\$mass_fraction\$\$",
+                r"\1mass_fraction: $$mass_fraction$$",
+                template_content,
+            )
+        else:
+            # Ensure mass_fraction lines are commented out
+            # Comment in quantities section if not already commented
+            template_content = re.sub(
+                r"(\s*)mass_fraction:\s*\n(\s*)type:\s*np\.float64",
+                r"\1# mass_fraction:\n\2#   type: np.float64",
+                template_content,
+                flags=re.MULTILINE,
+            )
+            # Comment in data section if not already commented
+            template_content = re.sub(
+                r"(\s*)mass_fraction:\s*\$\$mass_fraction\$\$",
+                r"\1# mass_fraction: $$mass_fraction$$",
+                template_content,
+            )
+
         # Write the output file
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(template_content)
@@ -859,7 +977,9 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
         return False
 
 
-def process_all_samples_to_yaml(all_coordinate_data, template_path, output_dir):
+def process_all_samples_to_yaml(
+    all_coordinate_data, template_path, output_dir, include_mass_fraction=False
+):
     """
     Process all samples and create individual YAML files.
 
@@ -867,6 +987,7 @@ def process_all_samples_to_yaml(all_coordinate_data, template_path, output_dir):
         all_coordinate_data (dict): All coordinate data from processed files
         template_path (str): Path to the template YAML file
         output_dir (str): Directory to save output YAML files
+        include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -914,7 +1035,11 @@ def process_all_samples_to_yaml(all_coordinate_data, template_path, output_dir):
 
                 # Create YAML file from template
                 if create_yaml_from_template(
-                    template_path, output_path, sample_data, sample_key
+                    template_path,
+                    output_path,
+                    sample_data,
+                    sample_key,
+                    include_mass_fraction,
                 ):
                     yaml_files_created += 1
 
@@ -1016,28 +1141,38 @@ generated from EDX analysis data with atomic composition information.
         return None
 
 
-def process_single_file(filename="NdCeFeB_2-5.hdf5", verbose=True):
+def process_single_file(
+    filename="NdCeFeB_2-5.hdf5", verbose=True, include_mass_fraction=False
+):
     """
     Process a single HDF5 file.
 
     Args:
         filename (str): Name of the HDF5 file to process (default: 'NdCeFeB_2-5.hdf5')
         verbose (bool): If True, print detailed output. If False, print only summary.
+        include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
     """
-    main(single_file=filename, verbose=verbose)
+    main(
+        single_file=filename,
+        verbose=verbose,
+        include_mass_fraction=include_mass_fraction,
+    )
 
 
-def process_all_files(verbose=True):
+def process_all_files(verbose=True, include_mass_fraction=False):
     """
     Process all HDF5 files in the datasets directory.
 
     Args:
         verbose (bool): If True, print detailed output. If False, print only summary.
+        include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
     """
-    main(single_file="", verbose=verbose)  # Empty string to force processing all files
+    main(
+        single_file="", verbose=verbose, include_mass_fraction=include_mass_fraction
+    )  # Empty string to force processing all files
 
 
-def main(single_file=None, verbose=True):
+def main(single_file=None, verbose=True, include_mass_fraction=False):
     """
     Main function to process HDF5 files in the datasets subfolder.
 
@@ -1045,6 +1180,7 @@ def main(single_file=None, verbose=True):
         single_file (str, optional): Specific filename to process. If None, processes all HDF5 files.
                                    Default: 'NdCeFeB_2-5.hdf5'
         verbose (bool): If True, print detailed output. If False, print only summary.
+        include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
     """
     # Set default single file if none specified
     if single_file is None:
@@ -1257,7 +1393,7 @@ def main(single_file=None, verbose=True):
 
         if os.path.exists(template_path):
             yaml_files_created = process_all_samples_to_yaml(
-                all_coordinate_data, template_path, output_dir
+                all_coordinate_data, template_path, output_dir, include_mass_fraction
             )
             print(f"Successfully generated {yaml_files_created} YAML schema files!")
 
@@ -1291,8 +1427,14 @@ if __name__ == "__main__":
     main()
 
     # Alternative usage examples:
-    # process_single_file()                           # Process default file (NdCeFeB_2-5.hdf5)
-    # process_single_file("another_file.hdf5")        # Process a specific file
-    # process_all_files()                             # Process all files in datasets directory
-    # main(single_file="specific_file.hdf5")          # Direct call with specific file
-    # main(single_file="")                            # Direct call to process all files
+    # process_single_file()                                    # Process default file (NdCeFeB_2-5.hdf5), no mass fractions
+    # process_single_file("another_file.hdf5")                 # Process a specific file, no mass fractions
+    # process_single_file("file.hdf5", include_mass_fraction=True)  # Include mass fractions in output
+    # process_all_files()                                      # Process all files in datasets directory, no mass fractions
+    # process_all_files(include_mass_fraction=True)            # Process all files with mass fractions
+    # main(single_file="specific_file.hdf5")                   # Direct call with specific file, no mass fractions
+    # main(single_file="", include_mass_fraction=True)         # Direct call to process all files with mass fractions
+
+    # Note: The NEEL_template.archive.yaml has mass_fraction commented out by default.
+    # When include_mass_fraction=True, the script will automatically uncomment those lines.
+    # When include_mass_fraction=False (default), mass_fraction remains commented out.
