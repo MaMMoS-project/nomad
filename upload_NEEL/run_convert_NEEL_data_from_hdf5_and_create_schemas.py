@@ -4,6 +4,88 @@ import re
 import zipfile
 from datetime import datetime
 
+# TODO: Implement extraction of Hc
+# TODO: calculate chemical formula from atomic fractions
+
+
+def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
+    """
+    Compute stoichiometric coefficients for Nd_a Ce_b Fe_c B compound from atomic fractions.
+
+    Based on the assumption that Fe only is in the main phase (Nd,Ce)2Fe14B: c = 14
+    nd_fraction = a/(a+b+14)
+    ce_fraction = b/(a+b+14)
+    fe_fraction = 14/(a+b+14)
+
+    Therefore:
+    a = (14*nd_fraction)/fe_fraction
+    b = (14*ce_fraction)/fe_fraction
+    where fe_fraction = 1-nd_fraction-ce_fraction
+
+    Parameters:
+    nd_fraction (float): Atomic fraction of Nd from EDX analysis.
+    ce_fraction (float): Atomic fraction of Ce from EDX analysis.
+
+    Returns:
+    tuple: (a, b, c) - stoichiometric coefficients for Nd_a Ce_b Fe_c B compound
+    """
+    fe_fraction = 1 - nd_fraction - ce_fraction
+    if fe_fraction <= 0:
+        # Invalid input - Fe fraction must be positive
+        return None, None, None
+
+    a = (14 * nd_fraction) / fe_fraction
+    b = (14 * ce_fraction) / fe_fraction
+    c = 14  # Assuming Fe is only in the main phase
+
+    return a, b, c
+
+
+def check_for_nd_ce_fe_only(elements):
+    """
+    Check if the elements contain only Nd, Ce, and Fe (and optionally B).
+
+    Args:
+        elements (dict): Dictionary of element data
+
+    Returns:
+        tuple: (is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction)
+    """
+    if not elements:
+        return False, None, None, None
+
+    # Get element symbols
+    element_symbols = set(elements.keys())
+
+    # Check if we have only Nd, Ce, Fe (B is assumed to be present but not measured)
+    expected_elements = {"Nd", "Ce", "Fe"}
+
+    # Must have exactly these elements or a subset including at least Fe
+    if not element_symbols.issubset(expected_elements):
+        return False, None, None, None
+
+    # Must have Fe, and at least one of Nd or Ce
+    if "Fe" not in element_symbols:
+        return False, None, None, None
+
+    if not ("Nd" in element_symbols or "Ce" in element_symbols):
+        return False, None, None, None
+
+    # Calculate atomic fractions (normalized)
+    total_atom_percent = sum(
+        elem_data["atom_percent"] for elem_data in elements.values()
+    )
+
+    if total_atom_percent <= 0:
+        return False, None, None, None
+
+    # Get normalized atomic fractions
+    nd_fraction = elements.get("Nd", {}).get("atom_percent", 0) / total_atom_percent
+    ce_fraction = elements.get("Ce", {}).get("atom_percent", 0) / total_atom_percent
+    fe_fraction = elements.get("Fe", {}).get("atom_percent", 0) / total_atom_percent
+
+    return True, nd_fraction, ce_fraction, fe_fraction
+
 
 def find_edx_groups(file_path):
     """
@@ -317,6 +399,25 @@ def get_element_data(file_path, sample_group_path, verbose=True):
         if verbose:
             print(f"Error reading element data from {sample_group_path}: {e}")
 
+    # Check for Nd-Ce-Fe-B compound formula if verbose
+    if verbose and element_data:
+        is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction = (
+            check_for_nd_ce_fe_only(element_data)
+        )
+        if is_nd_ce_fe_only:
+            print("  Detected Nd-Ce-Fe composition for compound formula calculation")
+            a, b, c = compute_stoichiometric_coefficients_from_fractions(
+                nd_fraction, ce_fraction
+            )
+            if a is not None and b is not None and c is not None:
+                compound_formula = f"Nd_{a:.2f}Ce_{b:.2f}Fe_{c:.2f}B"
+                print(f"  Computed compound formula: {compound_formula}")
+        else:
+            present_elements = list(element_data.keys())
+            print(
+                f"  Elements present: {present_elements} - not suitable for Nd-Ce-Fe-B formula"
+            )
+
     return element_data
 
 
@@ -579,6 +680,30 @@ def create_yaml_from_template(template_path, output_path, sample_data, sample_ke
             f"short_name: 'NEEL-Sample-{coords_str}'",
             template_content,
         )
+
+        # Check if we have only Nd, Ce, Fe elements and compute compound formula
+        compound_formula_comment = ""
+        if elements:
+            is_nd_ce_fe_only, nd_fraction, ce_fraction, fe_fraction = (
+                check_for_nd_ce_fe_only(elements)
+            )
+            if is_nd_ce_fe_only and nd_fraction is not None and ce_fraction is not None:
+                a, b, c = compute_stoichiometric_coefficients_from_fractions(
+                    nd_fraction, ce_fraction
+                )
+                if a is not None and b is not None and c is not None:
+                    # Format the compound formula with reasonable precision
+                    compound_formula = f"Nd_{a:.2f}Ce_{b:.2f}Fe_{c:.2f}B"
+                    compound_formula_comment = (
+                        f"# Computed compound formula: {compound_formula}\n"
+                    )
+                    print(
+                        f"Adding compound formula comment to YAML: {compound_formula}"
+                    )
+
+        # Add compound formula comment at the beginning if available
+        if compound_formula_comment:
+            template_content = compound_formula_comment + template_content
 
         # Write the output file
         with open(output_path, "w", encoding="utf-8") as f:
