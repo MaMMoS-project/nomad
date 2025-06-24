@@ -38,7 +38,8 @@ definitions:
         CoercivityBHcExternal:
           type: np.float64
           unit: A/m
-          description: "Coercivity from MOKE measurements (optional)"
+          description: 'Coercivity from MOKE measurements (optional)'
+
       sub_sections:
         elemental_composition:
           repeats: True

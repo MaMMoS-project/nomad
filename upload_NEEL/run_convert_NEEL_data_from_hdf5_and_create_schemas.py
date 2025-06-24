@@ -7,7 +7,6 @@ from datetime import datetime
 # TODO: Implement extraction of Hc
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
-# TODO: fix missing newline between  ypos and  elemental_composition:
 # TODO: check unit of Hc in NEEL data
 
 
@@ -773,13 +772,13 @@ def create_yaml_from_template(
             # Remove the coercivity field entirely if no MOKE data
             template_content = re.sub(
                 r"\s*CoercivityBHcExternal:\s*\$\$coercivity\$\$\s*\n",
-                "",
+                "\n",
                 template_content,
             )
             # Also remove from schema definition if present
             template_content = re.sub(
-                r"\s*CoercivityBHcExternal:\s*\n\s*type:\s*np\.float64\s*\n\s*unit:\s*A/m\s*\n",
-                "",
+                r"\s*CoercivityBHcExternal:\s*\n\s*type:\s*np\.float64\s*\n\s*unit:\s*A/m\s*\n\s*description:\s*\'Coercivity\s*from\s*MOKE\s*measurements\s*\(optional\)\'\s*\n",
+                "\n",
                 template_content,
             )
 
