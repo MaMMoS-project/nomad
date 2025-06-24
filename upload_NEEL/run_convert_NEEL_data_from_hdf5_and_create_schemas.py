@@ -4,7 +4,6 @@ import re
 import zipfile
 from datetime import datetime
 
-# TODO: Implement extraction of Hc
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
 # TODO: check unit of Hc in NEEL data
