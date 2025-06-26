@@ -1,0 +1,21 @@
+[project]
+channels = ["conda-forge"]
+description = "Add a short description here"
+name = "pixiTestH5"
+platforms = ["osx-arm64", "linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.13.3,<3.14"
+h5py = ">=3.13.0,<4"
+pandas = ">=2.2.3,<3"
+scipy = ">=1.15.2,<2"
+matplotlib = ">=3.10.3,<4"
+ipykernel = ">=6.29.5,<7"
+#requests = ">=2.32.3,<3"
+#pint = ">=0.24.4,<0.25"
+
+[pypi-dependencies]
+#nomad-lab = ">=0.10.4, <0.11"
