@@ -1,5 +1,5 @@
 definitions:
-  name: 'Simulation_data_from_UU_in_h5'
+  name: 'Simulation_data_from_UU_with_h5'
   sections:
     Simulation_data_from_UU:
       base_sections:
@@ -8,13 +8,19 @@ definitions:
       quantities:
         name:
           type: str
-          default: UU-DFT+MC-Data
+          default: "UU-DFT+MC-Data"
         description:
+          type: str
+        lab_id:
+          type: str
+        short_name:
+          type: str
+        owner:
           type: str
         Js_0:
           type: np.float32
           unit: T
-          defaultDisplayUnit: "T"
+          defaultDisplayUnit: "T"          
         Js_300:
           type: np.float32
           unit: T
@@ -28,13 +34,12 @@ data:
   m_def: Simulation_data_from_UU
   chemical_formula: $chemical_formula$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
-  lab_id: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
+  lab_id: 'Uppsala_University'
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
   method: 'DFT'
 
-  description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University.\n A juypter-notebook is showing how to handle the data can be found next to the raw data. \n The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html ."
+  description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University. A juypter-notebook is showing how to handle the data can be found next to the raw data. The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html ."
 
   Js_0: $Js_0$
   Js_300: $Js_300$
   K1_300: $K1_300$
-  
