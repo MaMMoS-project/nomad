@@ -60,9 +60,10 @@ definitions:
               #   type: np.float64
 data:
   m_def: Sample
-  description: "Data for one sample on a high-throughput wafer produced by Neel.\n The extracted data includes the x- and y- position of the sample on the wafer, the chemical elementals measured by EDX and the coercivity measured by MOKE.\n The sample is a NdCeFeB_2-5 alloy. MOKE measurements could have been not performed for all samples, so the value for coercivity is optional."
-  lab_id: 'CNRS Institut Néel'
-  short_name: 'NEEL-Sample-002'
+  description: "Data for one sample on a high-throughput wafer produced at Neel within the EU project MaMMoS.\n The extracted data includes the x- and y- position of the sample on the wafer, the chemical elementals measured by EDX and the coercivity measured by MOKE.\n The sample is a NdCeFeB_2-5 alloy. MOKE measurements could have been not performed for all samples, so the value for coercivity is optional."
+  lab_id: 'CNRS Institut Neel'
+  institute: 'CNRS Institut Neel'
+  short_name: '$$NEEL-Sample-001$$'
   owner: 'Nora Dempsey, Pierre le Berre, William Rigaut'
 
   # possible fields from the .hdf5 file

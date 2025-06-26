@@ -6,7 +6,9 @@ from datetime import datetime
 
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
-# TODO: check unit of Hc in NEEL data
+# TODO: check "HT_type" which should be e.g. "edx" as an attribute of the group named with "EDX"
+# insert new description of the data set (raw / filtered data)
+# reference to the chada-docu as .pdf on mammos-project on github
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
@@ -761,10 +763,19 @@ def create_yaml_from_template(
             coercivity_value = moke_data["coercivity_mean"]
             print(f"Using extracted MOKE coercivity: {coercivity_value}")
             if moke_data.get("coercivity_unit"):
-                print(f"Coercivity unit: {moke_data['coercivity_unit']}")
+                print(
+                    f"Coercivity unit original in hdf5: {moke_data['coercivity_unit']}"
+                )
+            if moke_data["coercivity_unit"] == "T":
+                print("Coercivity unit is Tesla, converting to A/m")
+                m0 = 4 * 3.141592653589793 * 1e-7  # Vacuum permeability in T*m/A
+                coercivity_value_in_A_per_m = (
+                    float(coercivity_value) / m0
+                )  # Convert T to A/m
+
             # Replace coercivity placeholder with actual value
             template_content = template_content.replace(
-                "$$coercivity$$", str(coercivity_value)
+                "$$coercivity$$", str(coercivity_value_in_A_per_m)
             )
         else:
             print("No MOKE data available, removing coercivity field from template")
@@ -917,7 +928,7 @@ def create_yaml_from_template(
         # Update the short_name to include sample coordinates
         coords_str = sample_key.replace("(", "").replace(")", "").replace(",", "_")
         template_content = re.sub(
-            r"short_name:\s*'NEEL-Sample-002'",
+            r"short_name:\s*'\$\$NEEL-Sample-001\$\$'",
             f"short_name: 'NEEL-Sample-{coords_str}'",
             template_content,
         )
