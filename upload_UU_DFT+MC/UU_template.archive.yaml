@@ -22,7 +22,6 @@ definitions:
   
 data:
   m_def: Simulation_data_from_UU
-  # datafile: '$filename.h5$'
   chemical_formula: $chemical_formula$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
