@@ -6,9 +6,9 @@ from datetime import datetime
 
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
-# TODO: check "HT_type" which should be e.g. "edx" as an attribute of the group named with "EDX"
-# insert new description of the data set (raw / filtered data)
-# reference to the chada-docu as .pdf on mammos-project on github
+# TODO: after new dataset was provided 20250626: check "HT_type" which should be e.g. "edx" as an attribute of the group named with "EDX"
+# TODO: after new description was provided 20250626: insert new description of the data set (raw / filtered data)
+# TODO: after new .pdfs are accessible 20250626: reference to the chada-docu as .pdf on mammos-project on github
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
