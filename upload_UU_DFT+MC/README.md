@@ -1,3 +1,5 @@
+# Code used to create a upload on Nomad for data from UU
+
 Into the folder called 'dataSets' one should put the simulation dataset to be processed.
  a specific dataset. Each dataset subfolder should have the following structure:
 
