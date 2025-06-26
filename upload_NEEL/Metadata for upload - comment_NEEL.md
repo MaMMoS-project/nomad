@@ -17,9 +17,18 @@ description: "Data for one sample on a high-throughput wafer produced by Neel.\n
 A juypter-notebook showing how to handle the data can be found next to the raw data.
 "
 
+## MODA-CHADA
+?? Link to CHADA diagram on github?
 
-
-
+##  Available fields in yaml
   lab_id: 'CNRS Institut Néel'
+  institute: 'CNRS Institut Neel'
   short_name: 'NEEL-Sample--30.0_40.0'
   owner: 'Nora Dempsey, Pierre le Berre, William Rigaut'
+  
+  # possible fields from the .hdf5 file	
+  # fabrication_date: '13/5/2025'
+  # operator: 'Pierre'
+  # sample_name: NOMAD_test2
+
+
