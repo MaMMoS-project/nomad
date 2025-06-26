@@ -1160,7 +1160,10 @@ generated from EDX analysis data with atomic composition information.
 
 
 def process_single_file(
-    filename="NdCeFeB_2-5.hdf5", verbose=True, include_mass_fraction=False
+    filename="NdCeFeB_2-5.hdf5",
+    verbose=True,
+    include_mass_fraction=False,
+    create_zip=False,
 ):
     """
     Process a single HDF5 file.
@@ -1169,28 +1172,34 @@ def process_single_file(
         filename (str): Name of the HDF5 file to process (default: 'NdCeFeB_2-5.hdf5')
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
+        create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
     """
     main(
         single_file=filename,
         verbose=verbose,
         include_mass_fraction=include_mass_fraction,
+        create_zip=create_zip,
     )
 
 
-def process_all_files(verbose=True, include_mass_fraction=False):
+def process_all_files(verbose=True, include_mass_fraction=False, create_zip=False):
     """
     Process all HDF5 files in the datasets directory.
 
     Args:
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
+        create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
     """
     main(
-        single_file="", verbose=verbose, include_mass_fraction=include_mass_fraction
+        single_file="",
+        verbose=verbose,
+        include_mass_fraction=include_mass_fraction,
+        create_zip=create_zip,
     )  # Empty string to force processing all files
 
 
-def main(single_file=None, verbose=True, include_mass_fraction=False):
+def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip=False):
     """
     Main function to process HDF5 files in the datasets subfolder.
 
@@ -1199,6 +1208,7 @@ def main(single_file=None, verbose=True, include_mass_fraction=False):
                                    Default: 'NdCeFeB_2-5.hdf5'
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
+        create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
     """
     # Set default single file if none specified
     if single_file is None:
@@ -1491,24 +1501,30 @@ def main(single_file=None, verbose=True, include_mass_fraction=False):
             )
             print(f"Successfully generated {yaml_files_created} YAML schema files!")
 
-            # Create upload zip file
-            if verbose:
-                print("\n" + "=" * 40)
-                print("CREATING UPLOAD ZIP FILE")
-                print("=" * 40)
-            else:
-                print("\nCreating upload zip file...")
-
-            zip_file_path = create_upload_zip(
-                hdf5_files, script_dir, datasets_dir, output_dir, verbose
-            )
-            if zip_file_path:
+            # Create upload zip file (optional)
+            if create_zip:
                 if verbose:
-                    print(f"✓ Upload zip file ready: {os.path.basename(zip_file_path)}")
+                    print("\n" + "=" * 40)
+                    print("CREATING UPLOAD ZIP FILE")
+                    print("=" * 40)
                 else:
-                    print(f"✓ Upload zip ready: {os.path.basename(zip_file_path)}")
+                    print("\nCreating upload zip file...")
+
+                zip_file_path = create_upload_zip(
+                    hdf5_files, script_dir, datasets_dir, output_dir, verbose
+                )
+                if zip_file_path:
+                    if verbose:
+                        print(
+                            f"✓ Upload zip file ready: {os.path.basename(zip_file_path)}"
+                        )
+                    else:
+                        print(f"✓ Upload zip ready: {os.path.basename(zip_file_path)}")
+                else:
+                    print("✗ Failed to create upload zip file.")
             else:
-                print("✗ Failed to create upload zip file.")
+                if verbose:
+                    print("\nSkipping zip file creation (create_zip=False)")
         else:
             print(f"Template file not found: {template_path}")
     else:
@@ -1802,14 +1818,20 @@ if __name__ == "__main__":
     main()
 
     # Alternative usage examples:
-    # process_single_file()                                    # Process default file (NdCeFeB_2-5.hdf5), no mass fractions
-    # process_single_file("another_file.hdf5")                 # Process a specific file, no mass fractions
-    # process_single_file("file.hdf5", include_mass_fraction=True)  # Include mass fractions in output
-    # process_all_files()                                      # Process all files in datasets directory, no mass fractions
-    # process_all_files(include_mass_fraction=True)            # Process all files with mass fractions
-    # main(single_file="specific_file.hdf5")                   # Direct call with specific file, no mass fractions
-    # main(single_file="", include_mass_fraction=True)         # Direct call to process all files with mass fractions
+    # process_single_file()                                        # Process default file (NdCeFeB_2-5.hdf5), no mass fractions, no zip
+    # process_single_file("another_file.hdf5")                     # Process a specific file, no mass fractions, no zip
+    # process_single_file("file.hdf5", include_mass_fraction=True) # Include mass fractions in output, no zip
+    # process_single_file("file.hdf5", create_zip=True)            # Process file and create zip file
+    # process_all_files()                                          # Process all files in datasets directory, no mass fractions, no zip
+    # process_all_files(include_mass_fraction=True)                # Process all files with mass fractions, no zip
+    # process_all_files(create_zip=True)                           # Process all files and create zip file
+    # main(single_file="specific_file.hdf5")                       # Direct call with specific file, no mass fractions, no zip
+    # main(single_file="", include_mass_fraction=True)             # Direct call to process all files with mass fractions, no zip
+    # main(single_file="", create_zip=True)                        # Direct call to process all files and create zip file
 
     # Note: The NEEL_template.archive.yaml has mass_fraction commented out by default.
     # When include_mass_fraction=True, the script will automatically uncomment those lines.
     # When include_mass_fraction=False (default), mass_fraction remains commented out.
+    #
+    # Zip file creation is disabled by default (create_zip=False).
+    # When create_zip=True, the script will create a zip file containing all HDF5 and generated YAML files.
