@@ -11,10 +11,10 @@ https://www.uu.se/en/contact-and-organisation/organisation?query=X208%3A39
 
 
 ################## yaml ###########################
-description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University.
+description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University."
 
 
-A juypter-notebook showing how to handle the data can be found next to the raw data.
+A juypter-notebook is showing how to handle the data can be found next to the raw data.
 The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html .
 "
 

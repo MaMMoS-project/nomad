@@ -32,7 +32,7 @@ data:
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
   method: 'DFT'
 
-  description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University."
+  description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University.\n A juypter-notebook is showing how to handle the data can be found next to the raw data. \n The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html ."
 
   Js_0: $Js_0$
   Js_300: $Js_300$
