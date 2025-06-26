@@ -8,7 +8,7 @@ definitions:
       quantities:
         name:
           type: str
-          default: UU-DFT-Data
+          default: UU-DFT+MC-Data
         description:
           type: str
         Js_300:
@@ -24,6 +24,7 @@ data:
   m_def: Simulation_data_from_UU
   chemical_formula: $chemical_formula$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
+  lab_id: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
   method: 'DFT'
 
