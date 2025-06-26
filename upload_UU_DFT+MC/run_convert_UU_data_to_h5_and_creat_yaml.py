@@ -88,10 +88,12 @@ def main():
     content = content.replace(
         "$K1_300$", str(dtf.round_to_significant_digits(K_300, 4))
     )
+    content = content.replace("$Js_0$", str(dtf.round_to_significant_digits(Js_0, 4)))
 
     with open(yaml_file, "w") as f:
         f.write(content)
     print(f"Created {yaml_file}")
+    print(f"Computed Js_0: {dtf.round_to_significant_digits(Js_0, 4)} T")
     print(f"Computed Js_300: {dtf.round_to_significant_digits(Js_300, 4)} T")
     print(f"Computed K1_300: {dtf.round_to_significant_digits(K_300, 4)} J/m³")
 

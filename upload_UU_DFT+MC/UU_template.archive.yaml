@@ -11,6 +11,10 @@ definitions:
           default: UU-DFT+MC-Data
         description:
           type: str
+        Js_0:
+          type: np.float32
+          unit: T
+          defaultDisplayUnit: "T"
         Js_300:
           type: np.float32
           unit: T
@@ -30,5 +34,7 @@ data:
 
   description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University."
 
+  Js_0: $Js_0$
   Js_300: $Js_300$
   K1_300: $K1_300$
+  
