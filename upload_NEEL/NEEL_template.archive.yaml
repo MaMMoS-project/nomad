@@ -53,13 +53,13 @@ data:
   lab_id: 'CNRS Institut Neel'
   institute: 'CNRS Institut Neel'
   short_name: '$$NEEL-Sample-001$$'
+  sample_name: '$$NEEL-Sample-002$$'
   owner: 'Nora Dempsey, Pierre le Berre, William Rigaut'
 
   # possible fields from the .hdf5 file
   # fabrication_date: '13/5/2025'
   # operator: 'Pierre'
-  # sample_name: NOMAD_test2
-
+  
   # 'x_position', 'x_pos' and 'xposition' does not work
   xpos: $$xpos$$
   ypos: $$ypos$$

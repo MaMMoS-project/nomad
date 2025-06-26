@@ -933,6 +933,13 @@ def create_yaml_from_template(
             template_content,
         )
 
+        # Update the sample_name to include sample coordinates
+        template_content = re.sub(
+            r"sample_name:\s*'\$\$NEEL-Sample-002\$\$'",
+            f"sample_name: 'NEEL-Sample-{coords_str}'",
+            template_content,
+        )
+
         # Remove chemical formula field from template (not exported)
         template_content = re.sub(
             r"\s*chemical_formula:\s*\$\$chemical_formula\$\$\s*\n",
