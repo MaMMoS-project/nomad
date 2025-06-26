@@ -1,5 +1,5 @@
 definitions:
-  name: 'Simulation_data_from_UU_with_h5'
+  name: 'Simulation data from UU with h5'
   sections:
     Simulation_data_from_UU:
       base_sections:
