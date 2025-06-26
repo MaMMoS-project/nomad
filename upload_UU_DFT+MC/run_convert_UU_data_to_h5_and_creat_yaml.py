@@ -37,7 +37,11 @@ def main():
     script = "convert_UU_data_to_h5.py"
     h5_file = os.path.join(datasets_dir, f"{subfolder}.h5")
     yaml_file = os.path.join(datasets_dir, f"{subfolder}.archive.yaml")
-    zip_filename = os.path.join(datasets_dir, f"{subfolder}_archive.zip")
+
+    # Create uploads directory at the same level as datasets
+    uploads_dir = os.path.join(os.path.dirname(datasets_dir), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    zip_filename = os.path.join(uploads_dir, f"{subfolder}_archive.zip")
 
     # Run the conversion script and create the .h5 file in datasets
     cmd = [
@@ -61,17 +65,26 @@ def main():
         f.write(content)
     print(f"Created {yaml_file}")
 
-    # Create a .zip containing the .h5, .yaml, and .cif files in datasets
-    cif_files = [f for f in os.listdir(subfolder_path) if f.endswith(".cif")]
+    # Create a .zip containing the .h5, .yaml files and all content of source_dir in a 'datasets' subfolder
     with zipfile.ZipFile(zip_filename, "w") as zipf:
+        # Add .h5 and .yaml files to the root of the zip
         if os.path.exists(h5_file):
             zipf.write(h5_file, arcname=os.path.basename(h5_file))
         if os.path.exists(yaml_file):
             zipf.write(yaml_file, arcname=os.path.basename(yaml_file))
-        for cif in cif_files:
-            cif_path = os.path.join(subfolder_path, cif)
-            zipf.write(cif_path, arcname=cif)
-    print(f"Created {zip_filename} containing .h5, .yaml, and .cif files.")
+
+        # Add all content from the original source_dir to a 'datasets/[source_dir_name]' subfolder in the zip
+        for root, dirs, files in os.walk(subfolder_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Calculate the relative path from the subfolder_path
+                relative_path = os.path.relpath(file_path, subfolder_path)
+                # Add the file to the 'datasets/[source_dir_name]' subfolder in the zip
+                arcname = os.path.join("datasets", subfolder, relative_path)
+                zipf.write(file_path, arcname=arcname)
+    print(
+        f"Created {zip_filename} containing .h5, .yaml files and all content from {subfolder} in 'datasets/{subfolder}' subfolder."
+    )
 
 
 if __name__ == "__main__":
