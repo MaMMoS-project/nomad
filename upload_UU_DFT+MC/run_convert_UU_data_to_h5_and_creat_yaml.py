@@ -95,7 +95,7 @@ def main():
     print(f"Computed Js_300: {dtf.round_to_significant_digits(Js_300, 4)} T")
     print(f"Computed K1_300: {dtf.round_to_significant_digits(K_300, 4)} J/m³")
 
-    # Create a .zip containing the .h5, .yaml files and all content of source_dir in a 'datasets' subfolder
+    # Create a .zip containing the .h5, .yaml files, all content of source_dir in a 'datasets' subfolder, and the packages folder
     with zipfile.ZipFile(zip_filename, "w") as zipf:
         # Add .h5 and .yaml files to the root of the zip
         if os.path.exists(h5_file):
@@ -112,8 +112,19 @@ def main():
                 # Add the file to the 'datasets/[source_dir_name]' subfolder in the zip
                 arcname = os.path.join("datasets", subfolder, relative_path)
                 zipf.write(file_path, arcname=arcname)
+
+        # Add only .py files from the packages subfolder to the zip
+        packages_dir = "packages"
+        if os.path.exists(packages_dir):
+            for root, dirs, files in os.walk(packages_dir):
+                for file in files:
+                    if file.endswith(".py"):
+                        file_path = os.path.join(root, file)
+                        # Use the relative path from current directory to maintain folder structure
+                        arcname = file_path
+                        zipf.write(file_path, arcname=arcname)
     print(
-        f"Created {zip_filename} containing .h5, .yaml files and all content from {subfolder} in 'datasets/{subfolder}' subfolder."
+        f"Created {zip_filename} containing .h5, .yaml files, all content from {subfolder} in 'datasets/{subfolder}' subfolder, and .py files from packages folder."
     )
 
 
