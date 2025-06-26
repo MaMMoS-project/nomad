@@ -105,6 +105,11 @@ def main():
         if os.path.exists(yaml_file):
             zipf.write(yaml_file, arcname=os.path.basename(yaml_file))
 
+        # Add the Jupyter notebook to the root of the zip
+        notebook_file = "Evaluation_dataset_UU.ipynb"
+        if os.path.exists(notebook_file):
+            zipf.write(notebook_file, arcname=notebook_file)
+
         # Add all content from the original source_dir to a 'datasets/[source_dir_name]' subfolder in the zip
         for root, dirs, files in os.walk(subfolder_path):
             for file in files:
@@ -126,7 +131,7 @@ def main():
                         arcname = file_path
                         zipf.write(file_path, arcname=arcname)
     print(
-        f"Created {zip_filename} containing .h5, .yaml files, all content from {subfolder} in 'datasets/{subfolder}' subfolder, and .py files from packages folder."
+        f"Created {zip_filename} containing .h5, .yaml files, Jupyter notebook, all content from {subfolder} in 'datasets/{subfolder}' subfolder, and .py files from packages folder."
     )
 
 
