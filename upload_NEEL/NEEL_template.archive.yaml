@@ -3,16 +3,7 @@ definitions:
   sections:
     Sample:
       base_sections:
-        # - 'nomad.datamodel.metainfo.eln.ElnBaseSection'
-        # - 'nomad.datamodel.metainfo.eln.Sample'
         - 'nomad.datamodel.data.EntryData'
-      # m_annotations:
-        # We can use the eln annotations to put the section to the overview
-        # page, and hide unwanted inherited quantities.
-        # eln:
-        #   overview: true
-          # hide: ['name', 'lab_id', 'description']
-          # hide: ['chemical_formula']
       quantities:
         name:
           type: str
@@ -56,8 +47,6 @@ definitions:
                 type: str
               atomic_fraction:
                 type: np.float64
-              # mass_fraction:
-              #   type: np.float64
 data:
   m_def: Sample
   description: "Data for one sample on a high-throughput wafer produced at Neel within the EU project MaMMoS.\n The extracted data includes the x- and y- position of the sample on the wafer, the chemical elementals measured by EDX and the coercivity measured by MOKE.\n The sample is a NdCeFeB_2-5 alloy. MOKE measurements could have been not performed for all samples, so the value for coercivity is optional."
@@ -80,5 +69,3 @@ data:
   elemental_composition:
     - element: $$element$$
       atomic_fraction: $$atomic_fraction$$
-      # mass_fraction: $$mass_fraction$$
-
