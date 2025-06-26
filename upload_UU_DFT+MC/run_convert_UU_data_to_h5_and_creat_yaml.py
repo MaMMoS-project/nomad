@@ -56,14 +56,44 @@ def main():
     subprocess.run(cmd, check=True)
 
     # Create a new archive.yaml file from the template in datasets
-    template = "template.archive.yaml"
+    template = "UU_template.archive.yaml"
     with open(template, "r") as f:
         content = f.read()
+
+    # Compute Js_300 and K1_300 values using the same logic as in Evaluation_dataset_UU.py
+    from packages import data_tests_functions as dtf
+
+    # Get the computed values from the data processing
+    A_0, A_300, K_300, Js_300, Js_0 = dtf.compute_exchange_and_anisotropy_constants(
+        os.path.join(subfolder_path, "MC"),
+        dtf.find_line_val_dict(
+            os.path.join(subfolder_path, "GS/x/out_last"),
+            "Total moment [J=L+S] (mu_B):",
+        ),
+        dtf.compute_anisotropy_constant(
+            os.path.join(subfolder_path, "GS"),
+            [d for d in os.listdir(os.path.join(subfolder_path, "GS")) if len(d) == 1],
+            dtf.get_unit_cell_volume(os.path.join(subfolder_path, "GS/x/out_last")),
+        ),
+        dtf.get_unit_cell_volume(os.path.join(subfolder_path, "GS/x/out_last")),
+        plot_Js=False,
+    )
+
+    # Replace placeholders in template
     content = content.replace("$chemical_formula$", subfolder)
     content = content.replace("$filename.h5$", f"{subfolder}.h5")
+    content = content.replace(
+        "$Js_300$", str(dtf.round_to_significant_digits(Js_300, 4))
+    )
+    content = content.replace(
+        "$K1_300$", str(dtf.round_to_significant_digits(K_300, 4))
+    )
+
     with open(yaml_file, "w") as f:
         f.write(content)
     print(f"Created {yaml_file}")
+    print(f"Computed Js_300: {dtf.round_to_significant_digits(Js_300, 4)} T")
+    print(f"Computed K1_300: {dtf.round_to_significant_digits(K_300, 4)} J/m³")
 
     # Create a .zip containing the .h5, .yaml files and all content of source_dir in a 'datasets' subfolder
     with zipfile.ZipFile(zip_filename, "w") as zipf:

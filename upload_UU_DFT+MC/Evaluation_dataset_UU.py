@@ -2,7 +2,7 @@ import os
 # import numpy as np
 # import pandas as pd
 
-import data_tests_functions as dtf
+from packages import data_tests_functions as dtf
 
 
 print("Importing done.")
@@ -21,7 +21,7 @@ data_dirs.append("./dataSets/Mn2CrB4")
 
 
 for data_dir in data_dirs:
-    import check_file_and_folder_structure as cffs
+    from packages import check_file_and_folder_structure as cffs
 
     structure_check_datasets[data_dir] = cffs.check_structure(
         data_dir, check_README=True, verbose=True

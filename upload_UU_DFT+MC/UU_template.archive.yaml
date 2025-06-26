@@ -1,0 +1,34 @@
+definitions:
+  name: 'Simulation_data_from_UU_in_h5'
+  sections:
+    Simulation_data_from_UU:
+      base_sections:
+        - 'nomad.datamodel.metainfo.eln.Chemical'
+        - 'nomad.datamodel.data.EntryData'
+      quantities:
+        name:
+          type: str
+          default: UU-DFT-Data
+        description:
+          type: str
+        Js_300:
+          type: np.float32
+          unit: T
+          defaultDisplayUnit: "T"
+        K1_300:
+          type: np.float32
+          unit: J/m^3
+          defaultDisplayUnit: "J/m^3"
+  
+data:
+  m_def: Simulation_data_from_UU
+  # datafile: '$filename.h5$'
+  chemical_formula: $chemical_formula$
+  institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
+  owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
+  method: 'DFT'
+
+  description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University."
+
+  Js_300: $Js_300$
+  K1_300: $K1_300$

@@ -13,7 +13,7 @@ import h5py
 import numpy as np
 import argparse
 import datetime
-import data_tests_functions as dtf
+from packages import data_tests_functions as dtf
 
 parser = argparse.ArgumentParser(
     description="Convert folder structure and files to HDF5."
