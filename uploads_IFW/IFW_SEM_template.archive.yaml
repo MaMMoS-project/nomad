@@ -1,0 +1,28 @@
+definitions:
+  name: 'SEM measurement data from IFW'
+  sections:
+    SEM_measurements_IFW:
+      base_sections:
+        - 'nomad.datamodel.metainfo.eln.Chemical'
+        - 'nomad.datamodel.data.EntryData'
+      quantities:
+        name:
+          type: str
+          default: "IFW-SEM-Data"
+        description:
+          type: str
+        lab_id:
+          type: str
+        short_name:
+          type: str
+        owner:
+          type: str
+  
+data:
+  m_def: SEM_measurements_IFW
+  chemical_formula: Mn53.5Al43.5Bi3
+  institute: 'Leibniz-Institut für Festkörper- und Werkstoffforschung Dresden e. V. (IFW, Institute for Metallic Materials, Magnetic Materials Group)'
+  lab_id: 'IFW'
+  owner: 'J. Winkler and T.G. Woodcock'
+
+  description: "SEM: Mn53.5Al43.5Bi3 after annealing at 1100 °C for 2 h, quenching directly in water.\n Some SEM-images were acquired. \nThis Data was created within the project MaMMoS at IFW.\nA juypter-notebook showing how to handle the data can be found next to the raw data. \n\nAdditional information on the datasets and corresponding CHADA diagrams can be found on https://mammos-project.github.io/resources.html ."

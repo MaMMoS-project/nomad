@@ -1,0 +1,10 @@
+[workspace]
+authors = ["HoWilgh <wilfried.hortschitz@donau-uni.ac.at>"]
+channels = ["conda-forge"]
+name = "uploads_IFW"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
