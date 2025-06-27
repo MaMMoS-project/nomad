@@ -201,6 +201,7 @@ def compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA):
     K1_in_JPerCubibm = (
         max(allKs) * 1e6
     )  # anisotropy J/m³; MagnetocrystallineAnisotropyConstantK1
+
     return K1_in_JPerCubibm
 
 
@@ -408,7 +409,10 @@ def get_mammos_data(data_dir, README=False):
 
     K1_in_JPerCubibm = compute_anisotropy_constant(data_dir_GS, xyz_dirs, ucvA)
     print(
-        f"Anisotropy constant (max of all): {K1_in_JPerCubibm} J/m\N{SUPERSCRIPT THREE}"
+        f"Anisotropy constant K1 (max of all): {K1_in_JPerCubibm} J/m\N{SUPERSCRIPT THREE}"
+    )
+    print(
+        f"Anisotropy constant K1 (max of all): {K1_in_JPerCubibm / 1e6} MJ/m\N{SUPERSCRIPT THREE}"
     )
 
     A_0, A_300, K_300, Js_300, Js_0 = compute_exchange_and_anisotropy_constants(
