@@ -4,6 +4,45 @@ import re
 import zipfile
 from datetime import datetime
 
+"""
+NEEL Data Processing Script for NOMAD Schema Generation
+
+DIRECTORY STRUCTURE:
+This script expects and creates the following directory structure:
+
+    project_root/
+    ├── run_convert_NEEL_data_from_hdf5_and_create_schemas.py  (this script)
+    ├── NEEL_template.archive.yaml                             (template file)
+    ├── datasets/                                              (INPUT: place original .hdf5 files here)
+    │   ├── NdCeFeB_2-5.hdf5                                   (example dataset from NEEL)
+    │   ├── NdFeB.hdf5                                         (example dataset from NEEL)
+    │   └── ...                                                (other .hdf5 files)
+    ├── generated_schemas/                                      (OUTPUT: generated YAML schemas)
+    │   ├── NdCeFeB_2-5_EDX_MOKE_xpos=0_0_ypos=0_0.archive.yaml
+    │   ├── NdCeFeB_2-5_EDX_MOKE_xpos=0_0_ypos=10_0.archive.yaml
+    │   └── ...                                                (one YAML per sample position)
+    └── uploads/                                               (OUTPUT: optional zip files for NOMAD upload)
+        ├── NdCeFeB_2-5_20250627_143022.zip                   (contains .hdf5 + .yaml files)
+        └── ...                                                (timestamped zip files)
+
+WORKFLOW:
+1. Place original HDF5 datasets from NEEL into the 'datasets/' subfolder
+2. Run this script: python run_convert_NEEL_data_from_hdf5_and_create_schemas.py
+3. Generated YAML schemas for NOMAD entries will be created in 'generated_schemas/'
+4. Optionally (if create_zip=True), zip files containing all data will be created in 'uploads/'
+
+IMPORTANT NOTES:
+- Original datasets from NEEL MUST be placed in a subfolder called 'datasets/'
+- The generated YAML schemas can be found under 'generated_schemas/' after running the script
+- ZIP files for NOMAD upload are created in 'uploads/' only when create_zip=True
+- ZIP files can become very large, especially if the original HDF5 datasets are large
+- Each YAML file corresponds to one sample position with EDX/MOKE measurement data
+
+FILE SIZE WARNING:
+The zip files in 'uploads/' can grow quite large (several GB) if the original HDF5 
+datasets are large, as they contain both the original data and generated schemas.
+"""
+
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
 # TODO: after new dataset was provided 20250626: check "HT_type" which should be e.g. "edx" as an attribute of the group named with "EDX"
@@ -781,13 +820,13 @@ def create_yaml_from_template(
             print("No MOKE data available, removing coercivity field from template")
             # Remove the coercivity field entirely if no MOKE data
             template_content = re.sub(
-                r"\s*CoercivityBHcExternal:\s*\$\$coercivity\$\$\s*\n",
+                r"\s*CoercivityHcExternal:\s*\$\$coercivity\$\$\s*\n",
                 "\n",
                 template_content,
             )
             # Also remove from schema definition if present
             template_content = re.sub(
-                r"\s*CoercivityBHcExternal:\s*\n\s*type:\s*np\.float64\s*\n\s*unit:\s*A/m\s*\n\s*description:\s*\'Coercivity\s*from\s*MOKE\s*measurements\s*\(optional\)\'\s*\n",
+                r"\s*CoercivityHcExternal:\s*\n\s*type:\s*np\.float64\s*\n\s*unit:\s*A/m\s*\n\s*description:\s*\'Coercivity\s*from\s*MOKE\s*measurements\s*\(optional\)\'\s*\n",
                 "\n",
                 template_content,
             )
@@ -1829,9 +1868,15 @@ if __name__ == "__main__":
     # main(single_file="", include_mass_fraction=True)             # Direct call to process all files with mass fractions, no zip
     # main(single_file="", create_zip=True)                        # Direct call to process all files and create zip file
 
+    # IMPORTANT SETUP INSTRUCTIONS:
+    # 1. Place original HDF5 datasets from NEEL into the 'datasets/' subfolder
+    # 2. Run this script to generate YAML schemas in 'generated_schemas/'
+    # 3. Optionally create zip files in 'uploads/' for NOMAD upload (can be very large!)
+    #
     # Note: The NEEL_template.archive.yaml has mass_fraction commented out by default.
     # When include_mass_fraction=True, the script will automatically uncomment those lines.
     # When include_mass_fraction=False (default), mass_fraction remains commented out.
     #
-    # Zip file creation is disabled by default (create_zip=False).
+    # Zip file creation is disabled by default (create_zip=False) to avoid large files.
     # When create_zip=True, the script will create a zip file containing all HDF5 and generated YAML files.
+    # WARNING: These zip files can become very large (several GB) if original HDF5 datasets are large!

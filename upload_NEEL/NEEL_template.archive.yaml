@@ -10,17 +10,13 @@ definitions:
           default: NEEL-Sample
         description:
           type: str
-          # m_annotations:
-            # eln: 
-              # component: RichTextEditQuantity
-              # label: Comment
         lab_id:
           type: str
         short_name:
           type: str
         owner:
           type: str
-          default: 'Nora Dempsey, Pierre le Berre, William Rigaut'
+          default: 'Nora Dempsey, Thibaut Devillers, Pierre le Berre, William Rigaut'
         xpos:
           type: np.float64
           unit: mm
@@ -29,10 +25,10 @@ definitions:
           type: np.float64
           unit: mm
           description: "y- position of the sample on the wafer"
-        CoercivityBHcExternal:
+        CoercivityHcExternal:
           type: np.float64
           unit: A/m
-          description: 'Coercivity from MOKE measurements (optional)'
+          description: 'Coercivity from MOKE measurements (optional), alternative label Hc'
 
       sub_sections:
         elemental_composition:
@@ -49,22 +45,18 @@ definitions:
                 type: np.float64
 data:
   m_def: Sample
-  description: "Data for one sample on a high-throughput wafer produced at Neel within the EU project MaMMoS.\n The extracted data includes the x- and y- position of the sample on the wafer, the chemical elementals measured by EDX and the coercivity measured by MOKE.\n The sample is a NdCeFeB_2-5 alloy. MOKE measurements could have been not performed for all samples, so the value for coercivity is optional."
+  description: "Data from one sample on a compositionally graded NdFeCeB film deposited on a Si wafer at CNRS, within the framework of the EU project MaMMoS.\n The film was sputtered from a 2-part target (1/2 NdFeB + 1/2 CeFeB), at a target-substrate distance of 100 mm and RF power 50 W (film name: NdCeFeB_2-5). The extracted data includes the x- and y- position of the sample on the wafer, the chemical elements measured by EDX and the coercivity measured by MOKE.\n EDX measurements only allow for the quantification of Nd, Ce, and Fe. Therefore the B concentration was assigned to impose an Fe/B ratio of 14, while maintaining the measured ratio between Nd, Ce and Fe, so that Fe+Nd+Ce+B=100%. conc\n . MOKE measurements are performed under pulsed magnetic field. The value of coercivity is extracted from MOKE measurements when the magnetization passes through zero in the reversal curve. MOKE measurements may not have been performed for all samples, so the value of coercivity is missing for some samples.\n\nA juypter-notebook showing how to handle the data can be found next to the raw data.\nAdditional information like CHADA diagrams can be found on https://mammos-project.github.io/resources.html ."
   lab_id: 'CNRS Institut Neel'
   institute: 'CNRS Institut Neel'
   short_name: '$$NEEL-Sample-001$$'
   sample_name: '$$NEEL-Sample-002$$'
-  owner: 'Nora Dempsey, Pierre le Berre, William Rigaut'
-
-  # possible fields from the .hdf5 file
-  # fabrication_date: '13/5/2025'
-  # operator: 'Pierre'
+  owner: 'Nora Dempsey, Thibaut Devillers, Pierre le Berre, William Rigaut'
   
   # 'x_position', 'x_pos' and 'xposition' does not work
   xpos: $$xpos$$
   ypos: $$ypos$$
 
-  CoercivityBHcExternal: $$coercivity$$
+  CoercivityHcExternal: $$coercivity$$
   
   elemental_composition:
     - element: $$element$$
