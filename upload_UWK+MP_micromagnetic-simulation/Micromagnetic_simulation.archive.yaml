@@ -1,0 +1,28 @@
+definitions:
+  name: 'Micromagnetic simulation data for a simple cube'
+  sections:
+    Micromagnetic_simulations_for_cube:
+      base_sections:
+        - 'nomad.datamodel.data.EntryData'
+      quantities:
+        name:
+          type: str
+          default: "micromagnetic simulation data"
+        description:
+          type: str
+        lab_id:
+          type: str
+        short_name:
+          type: str
+        owner:
+          type: str
+  
+data:
+  m_def: Micromagnetic_simulations_for_cube
+  institute: 'UWK, MPSD'
+  lab_id: 'MPSD'
+  owner: 'Thomas Schrefl, Sam Holt'
+  method: 'micromagnetics'
+
+  description: "Data for micromagnetic simulations produced at MPSD within the EU project MaMMoS. The hysteresis loops of a simple cubic magnet were computed for various intrinsic magnetic properties. A juypter-notebook showing how to handle the data can be found next to the raw data."
+
