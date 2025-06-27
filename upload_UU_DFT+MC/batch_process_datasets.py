@@ -18,6 +18,7 @@ def main():
     # List of datasets to process
     datasets_to_process: List[str] = [
         "Fe12Co4N2",
+        "Co2Fe2H4",
         "Fe16N2",
         "Fe3Y",
         "Fe2.78Nb0.22Y",
