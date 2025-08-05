@@ -18,8 +18,10 @@ A juypter-notebook is showing how to handle the data can be found next to the ra
 The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html .
 "
 
-## MODA-CHADA
-The corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html .
+# Connected Datasets and their DOIS
+## MaMMoS-initial-dataset
+
+
 
 ##  Available fields in yaml
   lab_id: 'Uppsala University'
