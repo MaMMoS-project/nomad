@@ -15,8 +15,9 @@ description: "Data from one sample on a compositionally graded NdFeCeB film depo
 Additional information like CHADA diagrams can be found on https://mammos-project.github.io/resources.html .
 "
 
-## MODA-CHADA
-?? Link to CHADA diagram on github?
+# Connected Datasets and their DOIS
+## MaMMoS-initial-dataset
+## MaMMoS-NEEL_FeNdCeB_magnets
 
 ##  Available fields in yaml
   lab_id: 'CNRS Institut Néel'
@@ -28,5 +29,3 @@ Additional information like CHADA diagrams can be found on https://mammos-projec
   # fabrication_date: '13/5/2025'
   # operator: 'Pierre'
   # sample_name: NOMAD_test2
-
-
