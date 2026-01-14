@@ -2,6 +2,7 @@ import h5py
 import os
 import re
 import zipfile
+import argparse
 from datetime import datetime
 
 """
@@ -207,7 +208,7 @@ def find_edx_groups(file_path):
             # Only check first-level groups (direct children of root)
             for key in f.keys():
                 item = f[key]
-                if isinstance(item, h5py.Group) and "EDX" in key:
+                if isinstance(item, h5py.Group) and "edx" in key:
                     edx_groups.append(key)
     except Exception as e:
         print(f"Error reading file {file_path}: {e}")
@@ -1031,7 +1032,7 @@ def create_yaml_from_template(
 
 
 def process_all_samples_to_yaml(
-    all_coordinate_data, template_path, output_dir, include_mass_fraction=False
+    all_coordinate_data, template_path, output_dir, include_mass_fraction=False, verbose=True
 ):
     """
     Process all samples and create individual YAML files.
@@ -1041,6 +1042,7 @@ def process_all_samples_to_yaml(
         template_path (str): Path to the template YAML file
         output_dir (str): Directory to save output YAML files
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
+        verbose (bool): If True, print detailed output. If False, print minimal output. (default: True)
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -1251,7 +1253,8 @@ def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip
     """
     # Set default single file if none specified
     if single_file is None:
-        single_file = "NdCeFeB_2-5.hdf5"
+        # single_file = "NdCeFeB_2-5.hdf5"
+        single_file = "SmFeV_3378.hdf5"
 
     # Define the datasets directory relative to the script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1536,7 +1539,7 @@ def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip
 
         if os.path.exists(template_path):
             yaml_files_created = process_all_samples_to_yaml(
-                all_coordinate_data, template_path, output_dir, include_mass_fraction
+                all_coordinate_data, template_path, output_dir, include_mass_fraction, verbose
             )
             print(f"Successfully generated {yaml_files_created} YAML schema files!")
 
@@ -1588,7 +1591,7 @@ def find_moke_groups(file_path):
             # Only check first-level groups (direct children of root)
             for key in f.keys():
                 item = f[key]
-                if isinstance(item, h5py.Group) and "MOKE" in key:
+                if isinstance(item, h5py.Group) and "moke" in key:
                     moke_groups.append(key)
     except Exception as e:
         print(f"Error reading file {file_path}: {e}")
@@ -1798,7 +1801,7 @@ def merge_edx_and_moke_data(all_coordinate_data):
                     }
 
                 # Merge data based on group type
-                if "EDX" in group_name:
+                if "edx" in group_name:
                     coordinate_map[coord_key]["has_edx"] = True
                     coordinate_map[coord_key]["elements"] = sample_data.get(
                         "elements", {}
@@ -1816,7 +1819,7 @@ def merge_edx_and_moke_data(all_coordinate_data):
                         "y_match", False
                     )
 
-                elif "MOKE" in group_name:
+                elif "moke" in group_name:
                     coordinate_map[coord_key]["has_moke"] = True
                     coordinate_map[coord_key]["moke_data"] = sample_data.get(
                         "moke_data", {}
@@ -1853,30 +1856,92 @@ def merge_edx_and_moke_data(all_coordinate_data):
 
 
 if __name__ == "__main__":
-    # Default: process only NdCeFeB_2-5.hdf5
-    main()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Process NEEL HDF5 datasets and generate NOMAD schema YAML files"
+    )
+    parser.add_argument(
+        "-f", "--file",
+        type=str,
+        default=None,
+        help="Process a specific HDF5 file from the datasets folder (e.g., 'SmFeV_3378.hdf5'). "
+             "If not specified, all HDF5 files in the datasets folder will be processed."
+    )
+    parser.add_argument(
+        "-m", "--mass-fraction",
+        action="store_true",
+        help="Include mass_fraction in the output YAML files"
+    )
+    parser.add_argument(
+        "-z", "--create-zip",
+        action="store_true",
+        help="Create a zip file containing all HDF5 and generated YAML files"
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Suppress verbose output"
+    )
 
-    # Alternative usage examples:
-    # process_single_file()                                        # Process default file (NdCeFeB_2-5.hdf5), no mass fractions, no zip
-    # process_single_file("another_file.hdf5")                     # Process a specific file, no mass fractions, no zip
-    # process_single_file("file.hdf5", include_mass_fraction=True) # Include mass fractions in output, no zip
-    # process_single_file("file.hdf5", create_zip=True)            # Process file and create zip file
-    # process_all_files()                                          # Process all files in datasets directory, no mass fractions, no zip
-    # process_all_files(include_mass_fraction=True)                # Process all files with mass fractions, no zip
-    # process_all_files(create_zip=True)                           # Process all files and create zip file
-    # main(single_file="specific_file.hdf5")                       # Direct call with specific file, no mass fractions, no zip
-    # main(single_file="", include_mass_fraction=True)             # Direct call to process all files with mass fractions, no zip
-    # main(single_file="", create_zip=True)                        # Direct call to process all files and create zip file
+    args = parser.parse_args()
 
-    # IMPORTANT SETUP INSTRUCTIONS:
-    # 1. Place original HDF5 datasets from NEEL into the 'datasets/' subfolder
-    # 2. Run this script to generate YAML schemas in 'generated_schemas/'
-    # 3. Optionally create zip files in 'uploads/' for NOMAD upload (can be very large!)
+    # Call main with parsed arguments
+    main(
+        single_file=args.file,
+        verbose=not args.quiet,
+        include_mass_fraction=args.mass_fraction,
+        create_zip=args.create_zip
+    )
+
+    # USAGE EXAMPLES:
+    # ================================================================================
     #
-    # Note: The NEEL_template.archive.yaml has mass_fraction commented out by default.
-    # When include_mass_fraction=True, the script will automatically uncomment those lines.
-    # When include_mass_fraction=False (default), mass_fraction remains commented out.
+    # 1. Process all HDF5 files in datasets/ folder (default)
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py
     #
-    # Zip file creation is disabled by default (create_zip=False) to avoid large files.
-    # When create_zip=True, the script will create a zip file containing all HDF5 and generated YAML files.
-    # WARNING: These zip files can become very large (several GB) if original HDF5 datasets are large!
+    # 2. Process a specific file
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --file SmFeV_3378.hdf5
+    #
+    # 3. Include mass fractions in output YAML files
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --mass-fraction
+    #
+    # 4. Create a zip file for NOMAD upload
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -z
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --create-zip
+    #
+    # 5. Suppress verbose output (quiet mode)
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -q
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --quiet
+    #
+    # 6. Combine options:
+    #    # Process specific file with mass fractions
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -m
+    #
+    #    # Process specific file and create zip
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -z
+    #
+    #    # Process all files with mass fractions and zip
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m -z
+    #
+    #    # Process specific file with quiet output
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -q
+    #
+    #    # All options combined
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -m -z -q
+    #
+    # 7. Show help message with all available options
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -h
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --help
+    #
+    # ================================================================================
+    #
+    # AVAILABLE OPTIONS:
+    # -f, --file FILE       : Process a specific HDF5 file from datasets/ folder
+    # -m, --mass-fraction   : Include mass_fraction in output YAML files
+    # -z, --create-zip      : Create a zip file containing HDF5 and YAML files
+    # -q, --quiet           : Suppress verbose output (minimal mode)
+    # -h, --help            : Show help message
+    #
+    # ===============================================================================
