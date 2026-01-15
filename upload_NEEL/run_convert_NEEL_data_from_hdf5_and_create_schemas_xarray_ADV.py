@@ -201,15 +201,48 @@ This script expects and creates the following directory structure:
     │   ├── SmFeV_3378_EDX_MOKE_xpos=0_0_ypos=0_0.archive.yaml
     │   ├── SmFeV_3378_EDX_MOKE_xpos=0_0_ypos=10_0.archive.yaml
     │   └── ...                                                (one YAML per sample position)
-    └── uploads/                                               (OUTPUT: optional zip files for NOMAD upload)
-        ├── SmFeV_3378_20260114_143022.zip                    (contains .hdf5 + .yaml files)
-        └── ...                                                (timestamped zip files)
+    ├── uploads/                                               (OUTPUT: optional zip files for NOMAD upload)
+    │   ├── SmFeV_3378_20260114_143022.zip                    (contains .hdf5 + .yaml files)
+    │   └── ...                                                (timestamped zip files)
+    └── Advanced_Data_Visualization_mod/                       (REQUIRED: local clone of ADV package)
+        └── Advanced_Data_Visualization/                       (cloned repository)
+            └── neel_data_vis/                                 (package used by this script)
+
+DEPENDENCY: Advanced_Data_Visualization (neel_data_vis)
+This script requires the neel_data_vis library from the MaMMoS Advanced_Data_Visualization project.
+The library can be used either as an installed package or from a local clone.
+
+Option 1: Install via pip (recommended for production use):
+    pip install neel_data_vis
+
+Option 2: Clone locally (recommended for development):
+    1. Navigate to this script's directory:
+       cd /path/to/upload_NEEL/
+    
+    2. Create the expected folder structure:
+       mkdir -p Advanced_Data_Visualization_mod
+       cd Advanced_Data_Visualization_mod
+    
+    3. Clone the repository from GitHub:
+       git clone https://github.com/MaMMoS-project/Advanced_Data_Visualization.git
+    
+    The final structure should be:
+       upload_NEEL/
+       └── Advanced_Data_Visualization_mod/
+           └── Advanced_Data_Visualization/
+               ├── neel_data_vis/
+               │   └── readers/
+               │       └── read_hdf5.py
+               └── ...
+
+    GitHub Repository: https://github.com/MaMMoS-project/Advanced_Data_Visualization
 
 WORKFLOW:
-1. Place original HDF5 datasets from NEEL into the 'datasets/' subfolder
-2. Run this script: python run_convert_NEEL_data_from_hdf5_and_create_schemas_xarray_ADV.py
-3. Generated YAML schemas for NOMAD entries will be created in 'generated_schemas/'
-4. Optionally (if create_zip=True), zip files containing all data will be created in 'uploads/'
+1. Ensure neel_data_vis is available (install via pip or clone locally as described above)
+2. Place original HDF5 datasets from NEEL into the 'datasets/' subfolder
+3. Run this script: python run_convert_NEEL_data_from_hdf5_and_create_schemas_xarray_ADV.py
+4. Generated YAML schemas for NOMAD entries will be created in 'generated_schemas/'
+5. Optionally (if create_zip=True), zip files containing all data will be created in 'uploads/'
 
 IMPORTANT NOTES:
 - Original datasets from NEEL MUST be placed in a subfolder called 'datasets/'
@@ -230,6 +263,11 @@ datasets are large, as they contain both the original data and generated schemas
 #   - neel_data_vis: Required for xarray-based HDF5 data extraction
 #   - numpy: For numerical operations
 #   - Standard library: os, re, sys, zipfile, argparse, pathlib, datetime
+
+# =============================================================================
+# TODO: check versions of neel_data_vis and the one stored in the .hdf5 file and warn if incompatible
+# TODO: test on various datasets including the ones already shared on NOMAD
+# =============================================================================
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):
