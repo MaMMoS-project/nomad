@@ -1293,7 +1293,9 @@ def process_all_samples_to_yaml(
     return yaml_files_created
 
 
-def create_upload_zip(hdf5_files, script_dir, datasets_dir, output_dir, verbose=True):
+def create_upload_zip(
+    hdf5_files, script_dir, datasets_dir, output_dir, verbose=True, include_readme=False
+):
     """
     Create a zip file containing the original HDF5 files and all generated YAML files.
 
@@ -1303,6 +1305,7 @@ def create_upload_zip(hdf5_files, script_dir, datasets_dir, output_dir, verbose=
         datasets_dir (str): Directory containing HDF5 files
         output_dir (str): Directory containing generated YAML files
         verbose (bool): If True, print detailed output. If False, print minimal output.
+        include_readme (bool): If True, include a README.txt file in the zip (default: False)
 
     Returns:
         str: Path to the created zip file, or None if creation failed
@@ -1347,13 +1350,14 @@ def create_upload_zip(hdf5_files, script_dir, datasets_dir, output_dir, verbose=
                 ]
                 for yaml_file in yaml_files:
                     yaml_path = os.path.join(output_dir, yaml_file)
-                    zipf.write(yaml_path, f"generated_schemas/{yaml_file}")
+                    zipf.write(yaml_path, f"{yaml_file}")
                     files_added += 1
                     if verbose:
                         print(f"Added YAML file: {yaml_file}")
 
-            # Add README file with processing information
-            readme_content = f"""# NEEL Data Processing Results
+            # Add README file with processing information (optional)
+            if include_readme:
+                readme_content = f"""# NEEL Data Processing Results
 
 Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
@@ -1369,8 +1373,10 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 This archive contains the original HDF5 data files and the corresponding NOMAD schema files
 generated from EDX analysis data with atomic composition information.
 """
-            zipf.writestr("README.txt", readme_content)
-            files_added += 1
+                zipf.writestr("README.txt", readme_content)
+                files_added += 1
+                if verbose:
+                    print("Added README.txt")
 
         if verbose:
             print(f"\nCreated zip file: {zip_filename}")
@@ -1392,6 +1398,7 @@ def process_single_file(
     verbose=True,
     include_mass_fraction=False,
     create_zip=False,
+    include_readme=False,
 ):
     """
     Process a single HDF5 file.
@@ -1401,16 +1408,20 @@ def process_single_file(
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
         create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
+        include_readme (bool): Whether to include README.txt in the zip file (default: False)
     """
     main(
         single_file=filename,
         verbose=verbose,
         include_mass_fraction=include_mass_fraction,
         create_zip=create_zip,
+        include_readme=include_readme,
     )
 
 
-def process_all_files(verbose=True, include_mass_fraction=False, create_zip=False):
+def process_all_files(
+    verbose=True, include_mass_fraction=False, create_zip=False, include_readme=False
+):
     """
     Process all HDF5 files in the datasets directory.
 
@@ -1418,12 +1429,14 @@ def process_all_files(verbose=True, include_mass_fraction=False, create_zip=Fals
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
         create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
+        include_readme (bool): Whether to include README.txt in the zip file (default: False)
     """
     main(
         single_file="",
         verbose=verbose,
         include_mass_fraction=include_mass_fraction,
         create_zip=create_zip,
+        include_readme=include_readme,
     )  # Empty string to force processing all files
 
 
@@ -1432,6 +1445,7 @@ def main(
     verbose=True,
     include_mass_fraction=False,
     create_zip=False,
+    include_readme=False,
 ):
     """
     Main function to process HDF5 files in the datasets subfolder using neel_data_vis.
@@ -1442,6 +1456,7 @@ def main(
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
         create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
+        include_readme (bool): Whether to include README.txt in the zip file (default: False)
     """
     # Set default single file if none specified
     if single_file is None:
@@ -1637,7 +1652,12 @@ def main(
                     print("\nCreating upload zip file...")
 
                 zip_file_path = create_upload_zip(
-                    hdf5_files, script_dir, datasets_dir, output_dir, verbose
+                    hdf5_files,
+                    script_dir,
+                    datasets_dir,
+                    output_dir,
+                    verbose,
+                    include_readme,
                 )
                 if zip_file_path:
                     if verbose:
@@ -1791,6 +1811,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-q", "--quiet", action="store_true", help="Suppress verbose output"
     )
+    parser.add_argument(
+        "-r",
+        "--include-readme",
+        action="store_true",
+        help="Include README.txt in the zip file (only applies when -z is used)",
+    )
 
     args = parser.parse_args()
 
@@ -1800,6 +1826,7 @@ if __name__ == "__main__":
         verbose=not args.quiet,
         include_mass_fraction=args.mass_fraction,
         create_zip=args.create_zip,
+        include_readme=args.include_readme,
     )
 
     # USAGE EXAMPLES:
