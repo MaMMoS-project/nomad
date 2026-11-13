@@ -485,6 +485,7 @@ def process_edx_coordinates(file_path, edx_group, verbose=True):
 
                 # Store data
                 EDX_sample_coordinate_data[sample_key] = {
+                    "data_type": "edx",
                     "x_pos_EDX": x_name,
                     "y_pos_EDX": y_name,
                     "x_pos_instrument": x_instrument,
@@ -1727,6 +1728,7 @@ def process_moke_coordinates(file_path, moke_group, verbose=True):
 
                 # Store data
                 MOKE_sample_coordinate_data[sample_key] = {
+                    "data_type": "moke",
                     "x_pos_MOKE": x_name,
                     "y_pos_MOKE": y_name,
                     "x_pos_instrument": x_instrument,
@@ -1874,9 +1876,19 @@ def merge_edx_and_moke_data(all_coordinate_data):
                         "group_names": [],
                     }
 
-                # Merge data based on group type (case-insensitive: group names
-                # may be e.g. 'NdCeFeB_3_9_EDX' or '..._MOKE')
-                if "edx" in group_name.lower():
+                # Merge data based on group type. Prefer the data_type tag set
+                # during processing (from the HT_type attribute), because group
+                # names are not reliable (e.g. the EDX group of NdCeFeB_3_13.hdf5
+                # is named 'NdCeFeB_3_13' and contains no 'edx' substring).
+                # Fall back to a case-insensitive name match for older data.
+                data_type = sample_data.get("data_type")
+                if data_type is None:
+                    group_lower = group_name.lower()
+                    if "edx" in group_lower:
+                        data_type = "edx"
+                    elif "moke" in group_lower:
+                        data_type = "moke"
+                if data_type == "edx":
                     coordinate_map[coord_key]["has_edx"] = True
                     coordinate_map[coord_key]["elements"] = sample_data.get(
                         "elements", {}
@@ -1894,7 +1906,7 @@ def merge_edx_and_moke_data(all_coordinate_data):
                         "y_match", False
                     )
 
-                elif "moke" in group_name.lower():
+                elif data_type == "moke":
                     coordinate_map[coord_key]["has_moke"] = True
                     coordinate_map[coord_key]["moke_data"] = sample_data.get(
                         "moke_data", {}
