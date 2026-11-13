@@ -7,11 +7,12 @@ comparing against the upstream MaMMoS tools that read/write this format
 
 Datasets currently in `datasets/`:
 
-| File | root `HT_type` | root writer attr | measurement group writers | inner layout |
+| File | root attr | root writer attr | measurement group writers | inner layout |
 |---|---|---|---|---|
-| `SmFeV_3378.hdf5` | `library` | `library_writer = 0.1` | `edx_writer '0.1 beta'`, `moke_writer '0.2'`, `esrf_writer '0.2'`, `profil_writer '0.3'` | flat (v0.x) |
-| `NdCeFeB_4_6.hdf5` | `dataset` | `dataset_writer = 0.1` | all `0.9` (`edx_writer`, `moke_writer`, `esrf_writer`, `profil_writer`) | nested `positions/` (v0.9) |
-| `NdCeFeB_3_13.hdf5` | `library` | `library_writer = 0.1` | all `0.9` (incl. new `sem_writer '0.9'`) | nested `positions/` (v0.9) |
+| `NdCeFeB_2-5.hdf5` | `HT_class = 'HTroot'` (no root `HT_type`) | none | all `'0.1 beta'` (`edx_writer`, `moke_writer`, `esrf_writer`) | flat (oldest) |
+| `SmFeV_3378.hdf5` | `HT_type = 'library'` | `library_writer = 0.1` | `edx_writer '0.1 beta'`, `moke_writer '0.2'`, `esrf_writer '0.2'`, `profil_writer '0.3'` | flat (v0.x) |
+| `NdCeFeB_4_6.hdf5` | `HT_type = 'dataset'` | `dataset_writer = 0.1` | all `0.9` (`edx_writer`, `moke_writer`, `esrf_writer`, `profil_writer`) | nested `positions/` (v0.9) |
+| `NdCeFeB_3_13.hdf5` | `HT_type = 'library'` | `library_writer = 0.1` | all `0.9` (incl. new `sem_writer '0.9'`) | nested `positions/` (v0.9) |
 
 Key point: the root `HT_type` (`library` vs `dataset`) describes the file's role
 (library = experimentalist-centered collection of scans; dataset = sample-based
@@ -22,10 +23,22 @@ v0.9 nested layout. The reliable layout marker is the per-group writer version
 
 ## Root level
 
-- File attributes: `HT_type` (`'library'` or `'dataset'`) plus `library_writer`
-  or `dataset_writer` (both `0.1` in the current files).
+- File attributes: either `HT_type` (`'library'` or `'dataset'`) plus
+  `library_writer` / `dataset_writer` (both `0.1`), or — in the oldest file
+  `NdCeFeB_2-5.hdf5` — only `HT_class = 'HTroot'` with no writer version.
 - Root groups: one group per measurement technique, one `sample` (and in
   `NdCeFeB_4_6.hdf5` an empty `samples` group with `HT_type='samples'`).
+
+## Provenance: NOMAD uploads
+
+`NdCeFeB_2-5.hdf5` is the dataset that was used for the MaMMoS initial dataset
+published on NOMAD:
+
+- MaMMoS initial dataset: doi:10.17172/NOMAD/2025.06.29-4
+- `MaMMoS-NEEL_FeNdCeB_magnets`: doi:10.17172/NOMAD/2025.06.29-2
+
+(These are also listed under "Connected Datasets and their DOIS" in
+`Metadata for upload - comment_NEEL.md`.)
 
 ## Measurement groups (first level)
 
@@ -35,23 +48,31 @@ Each measurement group carries attributes:
   `profil`, `sem` (only in `NdCeFeB_3_13.hdf5`). Canonical enum in
   ht-data-parser `src/enums.py`: `HtType = xrd, edx, moke, sem, profil`.
 - `<technique>_writer`: version string of the writer that produced the group
-  (`'0.1 beta'` / `'0.2'` / `'0.3'` in `SmFeV_3378.hdf5`; `'0.9'` in the new files).
+  (`'0.1 beta'` in `NdCeFeB_2-5.hdf5`; `'0.1 beta'`/`'0.2'`/`'0.3'` in
+  `SmFeV_3378.hdf5`; `'0.9'` in the new files).
 - `instrument`: instrument name (e.g. `Bruker Quantax Xflash-7`, `S-MOKE`,
-  `bm02 esrf`, `Bruker DektakXT`, `Zeiss Ultra Plus`).
+  `bm02 esrf` / `bm02 - esrf`, `Bruker DektakXT`, `Zeiss Ultra Plus`).
 - `profil` groups in the new files additionally have `source` (origin file).
+- `NdCeFeB_2-5.hdf5` has two ESRF groups: `..._ESRF` (raw) and
+  `..._ESRF_filtered`, the latter carrying a `note` attribute describing the
+  filter (pyFAI `medfilt1d_ng`, percentile=(40,60)) and `hdf5_reader='keep'` —
+  i.e. raw vs filtered variants can coexist as separate groups.
 
 Group naming differs by file:
 
 - `SmFeV_3378.hdf5`: plain names `edx`, `moke`, `xrd`, `dektak`.
+- `NdCeFeB_2-5.hdf5`: dataset-prefixed names `NdCeFeB_1-1_EDX`,
+  `NdCeFeB_2-5_10s650_MOKE`, `NdCeFeB_2-5_10s650_ESRF` (+ `_ESRF_filtered`)
+  (prefix is NOT the file name).
 - `NdCeFeB_4_6.hdf5`: dataset-prefixed names `NdCeFeB_3_9_EDX`, `NdCeFeB_4_6_MOKE`,
-  `NdCeFeB_4_6_ESRF`, `NdCeFeB_4_8_PROFIL` (prefix is NOT the file name).
+  `NdCeFeB_4_6_ESRF`, `NdCeFeB_4_8_PROFIL`.
 - `NdCeFeB_3_13.hdf5`: mixed — `MOKE`, `ESRF`, `SEM` plain, EDX group named
   `NdCeFeB_3_13`, profil group `NdCeFeB_4_8_PROFIL`. Therefore group names must
   not be used to classify the technique; always use the `HT_type` attribute.
 
 ## Inner layout: two versions
 
-### Old layout (writer <= 0.3, e.g. `SmFeV_3378.hdf5`)
+### Old layout (writers <= 0.3, e.g. `NdCeFeB_2-5.hdf5`, `SmFeV_3378.hdf5`)
 
 ```
 <measurement group>/
@@ -123,6 +144,10 @@ if a `positions` sub-group exists, coordinate groups live under
 
 ## `sample` / `samples` / `experiment_info`
 
+- `NdCeFeB_2-5.hdf5`: `sample` has attr `HT_class='sample'` with scalar datasets
+  `fabrication_date` ('16.04.2025'), `operator` ('William'), `sample_name`
+  ('NdCeFeB_2-5') plus layer groups `layer 0`, `layer 1`, `layer 2` (each with
+  `Element`, `Thickness`).
 - `SmFeV_3378.hdf5`: `sample` has attr `HT_class='sample'` and scalar datasets
   `fabrication_date`, `file_type='Library'`, `operator`, `sample_name`.
 - `NdCeFeB_4_6.hdf5`: `sample` (no attrs) contains groups `NdCeFeB_4_6` and
@@ -167,16 +192,22 @@ Upstream authorship (all Institut Néel): `Advanced_Data_Visualization`
 - Running without arguments processes all `*.hdf5` in `datasets/`; CLI:
   `-f/--file`, `-m/--mass-fraction`, `-z/--create-zip`, `-q/--quiet`, `-h/--help`.
 
-Verification (all three datasets): 3 × 289 EDX positions + 3 × 225 MOKE
-positions, 1542/1542 coordinate matches and 2554/2554 element verifications
-(100%), 867 generated `*.archive.yaml` files in `generated_schemas/`
+Verification (all four datasets): 4 × 289 EDX positions + 4 × 225 MOKE
+positions, 2056/2056 coordinate matches and 3395/3395 element verifications
+(100%), 1156 generated `*.archive.yaml` files in `generated_schemas/`
 (225 EDX+MOKE merged + 64 EDX-only per dataset), no UNKNOWN or empty
 compositions.
 
 ## Known quirks / open points
 
+- Root attribute changed over time: `NdCeFeB_2-5.hdf5` uses `HT_class='HTroot'`
+  (no root `HT_type`/writer), later files use `HT_type` (`library`/`dataset`)
+  plus `library_writer`/`dataset_writer`.
 - `xrd` was renamed to `xrd_wafer` in the new files; the conversion script
   currently processes only EDX and MOKE.
+- `NdCeFeB_2-5.hdf5` ships raw and filtered ESRF data as separate groups
+  (`..._ESRF` and `..._ESRF_filtered` with a `note` attribute); which variant
+  to describe/upload is an open point (raw vs filtered).
 - New `sem` HT_type in `NdCeFeB_3_13.hdf5` (no `results/` sub-group).
 - `NdCeFeB_4_6.hdf5` contains an empty `samples` group; `sample` metadata moved
   into `experiment_info` inside each measurement group.
