@@ -46,7 +46,11 @@ datasets are large, as they contain both the original data and generated schemas
 
 # Note: Chemical formula calculation is implemented but not exported to YAML
 #       (atomic fractions are recalculated including B and exported instead)
-# TODO: after new dataset was provided 20250626: check "HT_type" which should be e.g. "edx" as an attribute of the group named with "EDX"
+# DONE: HT_type attribute (e.g. "edx", "moke") of first-level groups is now used to
+#       detect measurement groups (see find_groups_by_ht_type); older files without
+#       the attribute fall back to a case-insensitive name match. Per-position groups
+#       are found under '<group>/positions/' in newer files or directly under '<group>'
+#       in older files (see get_position_group_paths).
 # TODO: after new description was provided 20250626: insert new description of the data set (raw / filtered data)
 # TODO: after new .pdfs are accessible 20250626: reference to the chada-docu as .pdf on mammos-project on github
 
@@ -191,30 +195,77 @@ def check_for_nd_ce_fe_only(elements):
     return True, nd_fraction, ce_fraction, fe_fraction
 
 
-def find_edx_groups(file_path):
+def get_ht_type(group):
     """
-    Find first-level groups containing 'EDX' in their name within an HDF5 file.
+    Return the 'HT_type' attribute of an HDF5 group as a lowercase string, or None.
+
+    Args:
+        group (h5py.Group): HDF5 group to inspect
+
+    Returns:
+        str or None: Lowercase HT_type value (e.g. 'edx', 'moke') or None if absent
+    """
+    if "HT_type" in group.attrs:
+        val = group.attrs["HT_type"]
+        if isinstance(val, bytes):
+            val = val.decode("utf-8")
+        return str(val).lower()
+    return None
+
+
+def find_groups_by_ht_type(file_path, ht_type):
+    """
+    Find first-level groups whose 'HT_type' attribute matches ht_type (case-insensitive).
+
+    Newer NEEL files (e.g. NdCeFeB_4_6.hdf5) carry an HT_type attribute on each
+    measurement group (e.g. 'edx', 'moke'), and the group name does not necessarily
+    start with the file name (e.g. 'NdCeFeB_3_9_EDX'). Older files lack the
+    attribute, so as a fallback the group name is matched case-insensitively
+    against the ht_type substring (e.g. 'edx' in '..._EDX').
 
     Args:
         file_path (str): Path to the HDF5 file
+        ht_type (str): HT_type value to look for, e.g. 'edx' or 'moke'
 
     Returns:
-        list: List of first-level group paths containing 'EDX' in their name
+        list: List of first-level group paths matching the requested HT_type
     """
-    edx_groups = []
+    matched = []
 
     try:
         with h5py.File(file_path, "r") as f:
             # Only check first-level groups (direct children of root)
             for key in f.keys():
                 item = f[key]
-                if isinstance(item, h5py.Group) and "edx" in key:
-                    edx_groups.append(key)
+                if not isinstance(item, h5py.Group):
+                    continue
+                if get_ht_type(item) == ht_type.lower():
+                    matched.append(key)
+                elif "HT_type" not in item.attrs and ht_type.lower() in key.lower():
+                    # Backward compatibility: old files have no HT_type attribute,
+                    # match by name substring instead (e.g. 'edx' in '..._EDX')
+                    matched.append(key)
     except Exception as e:
         print(f"Error reading file {file_path}: {e}")
         return []
 
-    return edx_groups
+    return matched
+
+
+def find_edx_groups(file_path):
+    """
+    Find first-level EDX groups within an HDF5 file.
+
+    Detection is via the HT_type attribute ('edx'); for older files without the
+    attribute it falls back to a case-insensitive 'edx' substring in the group name.
+
+    Args:
+        file_path (str): Path to the HDF5 file
+
+    Returns:
+        list: List of first-level group paths containing EDX data
+    """
+    return find_groups_by_ht_type(file_path, "edx")
 
 
 def list_group_entries(file_path, group_path, verbose=True):
@@ -276,6 +327,52 @@ def extract_coordinates_from_name(name):
         y = float(match.group(2))
         return x, y
     return None, None
+
+
+def get_position_group_paths(file_path, group_path):
+    """
+    Return coordinate sample groups of a measurement group (e.g. EDX or MOKE).
+
+    Newer NEEL files (e.g. NdCeFeB_4_6.hdf5) store the per-position groups under
+    '<group>/positions/', e.g. 'NdCeFeB_3_9_EDX/positions/(-10.0,-10.0)'.
+    Older files store them directly under '<group>', e.g. '<EDX group>/(-10,25)'.
+    Both layouts are supported: if a 'positions' sub-group exists it is used,
+    otherwise the direct children of the group are scanned.
+
+    Args:
+        file_path (str): Path to the HDF5 file
+        group_path (str): Path to the measurement group (e.g. EDX or MOKE group)
+
+    Returns:
+        list: List of (sample_key, sample_group_path) tuples for groups whose name
+              encodes coordinates, e.g. ('(-10.0,-10.0)', 'NdCeFeB_3_9_EDX/positions/(-10.0,-10.0)')
+    """
+    position_groups = []
+
+    try:
+        with h5py.File(file_path, "r") as f:
+            if group_path not in f:
+                return position_groups
+            group = f[group_path]
+
+            if "positions" in group and isinstance(group["positions"], h5py.Group):
+                container = group["positions"]
+                container_path = f"{group_path}/positions"
+            else:
+                container = group
+                container_path = group_path
+
+            for key in container.keys():
+                item = container[key]
+                if not isinstance(item, h5py.Group):
+                    continue
+                x_name, y_name = extract_coordinates_from_name(key)
+                if x_name is not None and y_name is not None:
+                    position_groups.append((key, f"{container_path}/{key}"))
+    except Exception as e:
+        print(f"Error reading position groups from {group_path} in {file_path}: {e}")
+
+    return position_groups
 
 
 def get_instrument_positions(file_path, group_path, verbose=True):
@@ -362,56 +459,44 @@ def process_edx_coordinates(file_path, edx_group, verbose=True):
     EDX_sample_coordinate_data = {}
 
     try:
-        with h5py.File(file_path, "r") as f:
-            if edx_group in f:
-                group = f[edx_group]
+        # Coordinate groups live under '<edx_group>/positions/' in newer files,
+        # or directly under '<edx_group>' in older files
+        for sample_key, sample_group_path in get_position_group_paths(
+            file_path, edx_group
+        ):
+            # Extract coordinates from group name
+            x_name, y_name = extract_coordinates_from_name(sample_key)
+            if verbose:
+                print(
+                    f"Processing group: {sample_key} with coordinates ({x_name}, {y_name})"
+                )
+            if x_name is not None and y_name is not None:
+                # Get instrument positions
+                if verbose:
+                    print(f"  - Found coordinates: ({x_name}, {y_name})")
+                if verbose:
+                    print(f"  - Sample-group path: {sample_group_path}")
+                x_instrument, y_instrument, x_unit, y_unit = get_instrument_positions(
+                    file_path, sample_group_path, verbose
+                )
 
-                for key in group.keys():
-                    item = group[key]
-                    if isinstance(item, h5py.Group):
-                        # Extract coordinates from group name
-                        x_name, y_name = extract_coordinates_from_name(key)
-                        if verbose:
-                            print(
-                                f"Processing group: {key} with coordinates ({x_name}, {y_name})"
-                            )
-                        if x_name is not None and y_name is not None:
-                            # This is a coordinate group, rename variable to sample_key
-                            sample_key = key
-                            # Get instrument positions
-                            if verbose:
-                                print(f"  - Found coordinates: ({x_name}, {y_name})")
-                            # Construct sample-group path
-                            sample_group_path = f"{edx_group}/{sample_key}"
-                            if verbose:
-                                print(
-                                    f"  - Constructed sample-group path: {sample_group_path}"
-                                )
-                            x_instrument, y_instrument, x_unit, y_unit = (
-                                get_instrument_positions(
-                                    file_path, sample_group_path, verbose
-                                )
-                            )
+                # Get element data from results sub-group
+                element_data = get_element_data(file_path, sample_group_path, verbose)
 
-                            # Get element data from results sub-group
-                            element_data = get_element_data(
-                                file_path, sample_group_path, verbose
-                            )
-
-                            # Store data
-                            EDX_sample_coordinate_data[sample_key] = {
-                                "x_pos_EDX": x_name,
-                                "y_pos_EDX": y_name,
-                                "x_pos_instrument": x_instrument,
-                                "y_pos_instrument": y_instrument,
-                                "x_pos_unit": x_unit,
-                                "y_pos_unit": y_unit,
-                                "elements": element_data,
-                                "x_match": x_instrument is not None
-                                and abs(x_name - x_instrument) < 1e-6,
-                                "y_match": y_instrument is not None
-                                and abs(y_name - y_instrument) < 1e-6,
-                            }
+                # Store data
+                EDX_sample_coordinate_data[sample_key] = {
+                    "x_pos_EDX": x_name,
+                    "y_pos_EDX": y_name,
+                    "x_pos_instrument": x_instrument,
+                    "y_pos_instrument": y_instrument,
+                    "x_pos_unit": x_unit,
+                    "y_pos_unit": y_unit,
+                    "elements": element_data,
+                    "x_match": x_instrument is not None
+                    and abs(x_name - x_instrument) < 1e-6,
+                    "y_match": y_instrument is not None
+                    and abs(y_name - y_instrument) < 1e-6,
+                }
 
     except Exception as e:
         if verbose:
@@ -806,7 +891,9 @@ def create_yaml_from_template(
                 print(
                     f"Coercivity unit original in hdf5: {moke_data['coercivity_unit']}"
                 )
-            if moke_data["coercivity_unit"] == "T":
+            # Default: assume value is already in A/m
+            coercivity_value_in_A_per_m = float(coercivity_value)
+            if moke_data.get("coercivity_unit") == "T":
                 print("Coercivity unit is Tesla, converting to A/m")
                 m0 = 4 * 3.141592653589793 * 1e-7  # Vacuum permeability in T*m/A
                 coercivity_value_in_A_per_m = (
@@ -1032,7 +1119,11 @@ def create_yaml_from_template(
 
 
 def process_all_samples_to_yaml(
-    all_coordinate_data, template_path, output_dir, include_mass_fraction=False, verbose=True
+    all_coordinate_data,
+    template_path,
+    output_dir,
+    include_mass_fraction=False,
+    verbose=True,
 ):
     """
     Process all samples and create individual YAML files.
@@ -1201,7 +1292,7 @@ generated from EDX analysis data with atomic composition information.
 
 
 def process_single_file(
-    filename="NdCeFeB_2-5.hdf5",
+    filename=None,
     verbose=True,
     include_mass_fraction=False,
     create_zip=False,
@@ -1210,7 +1301,8 @@ def process_single_file(
     Process a single HDF5 file.
 
     Args:
-        filename (str): Name of the HDF5 file to process (default: 'NdCeFeB_2-5.hdf5')
+        filename (str, optional): Name of the HDF5 file to process. If None, all
+                                   HDF5 files in the datasets directory are processed.
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
         create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
@@ -1245,16 +1337,16 @@ def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip
     Main function to process HDF5 files in the datasets subfolder.
 
     Args:
-        single_file (str, optional): Specific filename to process. If None, processes all HDF5 files.
-                                   Default: 'NdCeFeB_2-5.hdf5'
+        single_file (str, optional): Specific filename to process. If None or empty,
+                                   all HDF5 files in the datasets directory are processed.
         verbose (bool): If True, print detailed output. If False, print only summary.
         include_mass_fraction (bool): Whether to include mass_fraction in the output (default: False)
         create_zip (bool): Whether to create a zip file with HDF5 and YAML files (default: False)
     """
-    # Set default single file if none specified
+    # If no file specified, process all HDF5 files in the datasets directory
+    # (empty string forces the "process all" branch below)
     if single_file is None:
-        # single_file = "NdCeFeB_2-5.hdf5"
-        single_file = "SmFeV_3378.hdf5"
+        single_file = ""
 
     # Define the datasets directory relative to the script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1539,7 +1631,11 @@ def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip
 
         if os.path.exists(template_path):
             yaml_files_created = process_all_samples_to_yaml(
-                all_coordinate_data, template_path, output_dir, include_mass_fraction, verbose
+                all_coordinate_data,
+                template_path,
+                output_dir,
+                include_mass_fraction,
+                verbose,
             )
             print(f"Successfully generated {yaml_files_created} YAML schema files!")
 
@@ -1576,28 +1672,18 @@ def main(single_file=None, verbose=True, include_mass_fraction=False, create_zip
 
 def find_moke_groups(file_path):
     """
-    Find first-level groups containing 'MOKE' in their name within an HDF5 file.
+    Find first-level MOKE groups within an HDF5 file.
+
+    Detection is via the HT_type attribute ('moke'); for older files without the
+    attribute it falls back to a case-insensitive 'moke' substring in the group name.
 
     Args:
         file_path (str): Path to the HDF5 file
 
     Returns:
-        list: List of first-level group paths containing 'MOKE' in their name
+        list: List of first-level group paths containing MOKE data
     """
-    moke_groups = []
-
-    try:
-        with h5py.File(file_path, "r") as f:
-            # Only check first-level groups (direct children of root)
-            for key in f.keys():
-                item = f[key]
-                if isinstance(item, h5py.Group) and "moke" in key:
-                    moke_groups.append(key)
-    except Exception as e:
-        print(f"Error reading file {file_path}: {e}")
-        return []
-
-    return moke_groups
+    return find_groups_by_ht_type(file_path, "moke")
 
 
 def process_moke_coordinates(file_path, moke_group, verbose=True):
@@ -1615,56 +1701,44 @@ def process_moke_coordinates(file_path, moke_group, verbose=True):
     MOKE_sample_coordinate_data = {}
 
     try:
-        with h5py.File(file_path, "r") as f:
-            if moke_group in f:
-                group = f[moke_group]
+        # Coordinate groups live under '<moke_group>/positions/' in newer files,
+        # or directly under '<moke_group>' in older files
+        for sample_key, sample_group_path in get_position_group_paths(
+            file_path, moke_group
+        ):
+            # Extract coordinates from group name
+            x_name, y_name = extract_coordinates_from_name(sample_key)
+            if verbose:
+                print(
+                    f"Processing MOKE group: {sample_key} with coordinates ({x_name}, {y_name})"
+                )
+            if x_name is not None and y_name is not None:
+                # Get instrument positions
+                if verbose:
+                    print(f"  - Found coordinates: ({x_name}, {y_name})")
+                if verbose:
+                    print(f"  - Sample-group path: {sample_group_path}")
+                x_instrument, y_instrument, x_unit, y_unit = get_instrument_positions(
+                    file_path, sample_group_path, verbose
+                )
 
-                for key in group.keys():
-                    item = group[key]
-                    if isinstance(item, h5py.Group):
-                        # Extract coordinates from group name
-                        x_name, y_name = extract_coordinates_from_name(key)
-                        if verbose:
-                            print(
-                                f"Processing MOKE group: {key} with coordinates ({x_name}, {y_name})"
-                            )
-                        if x_name is not None and y_name is not None:
-                            # This is a coordinate group, rename variable to sample_key
-                            sample_key = key
-                            # Get instrument positions
-                            if verbose:
-                                print(f"  - Found coordinates: ({x_name}, {y_name})")
-                            # Construct sample-group path
-                            sample_group_path = f"{moke_group}/{sample_key}"
-                            if verbose:
-                                print(
-                                    f"  - Constructed sample-group path: {sample_group_path}"
-                                )
-                            x_instrument, y_instrument, x_unit, y_unit = (
-                                get_instrument_positions(
-                                    file_path, sample_group_path, verbose
-                                )
-                            )
+                # Get MOKE data from results sub-group
+                moke_data = get_moke_data(file_path, sample_group_path, verbose)
 
-                            # Get MOKE data from results sub-group
-                            moke_data = get_moke_data(
-                                file_path, sample_group_path, verbose
-                            )
-
-                            # Store data
-                            MOKE_sample_coordinate_data[sample_key] = {
-                                "x_pos_MOKE": x_name,
-                                "y_pos_MOKE": y_name,
-                                "x_pos_instrument": x_instrument,
-                                "y_pos_instrument": y_instrument,
-                                "x_pos_unit": x_unit,
-                                "y_pos_unit": y_unit,
-                                "moke_data": moke_data,
-                                "x_match": x_instrument is not None
-                                and abs(x_name - x_instrument) < 1e-6,
-                                "y_match": y_instrument is not None
-                                and abs(y_name - y_instrument) < 1e-6,
-                            }
+                # Store data
+                MOKE_sample_coordinate_data[sample_key] = {
+                    "x_pos_MOKE": x_name,
+                    "y_pos_MOKE": y_name,
+                    "x_pos_instrument": x_instrument,
+                    "y_pos_instrument": y_instrument,
+                    "x_pos_unit": x_unit,
+                    "y_pos_unit": y_unit,
+                    "moke_data": moke_data,
+                    "x_match": x_instrument is not None
+                    and abs(x_name - x_instrument) < 1e-6,
+                    "y_match": y_instrument is not None
+                    and abs(y_name - y_instrument) < 1e-6,
+                }
 
     except Exception as e:
         if verbose:
@@ -1800,8 +1874,9 @@ def merge_edx_and_moke_data(all_coordinate_data):
                         "group_names": [],
                     }
 
-                # Merge data based on group type
-                if "edx" in group_name:
+                # Merge data based on group type (case-insensitive: group names
+                # may be e.g. 'NdCeFeB_3_9_EDX' or '..._MOKE')
+                if "edx" in group_name.lower():
                     coordinate_map[coord_key]["has_edx"] = True
                     coordinate_map[coord_key]["elements"] = sample_data.get(
                         "elements", {}
@@ -1819,7 +1894,7 @@ def merge_edx_and_moke_data(all_coordinate_data):
                         "y_match", False
                     )
 
-                elif "moke" in group_name:
+                elif "moke" in group_name.lower():
                     coordinate_map[coord_key]["has_moke"] = True
                     coordinate_map[coord_key]["moke_data"] = sample_data.get(
                         "moke_data", {}
@@ -1861,26 +1936,27 @@ if __name__ == "__main__":
         description="Process NEEL HDF5 datasets and generate NOMAD schema YAML files"
     )
     parser.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         type=str,
         default=None,
-        help="Process a specific HDF5 file from the datasets folder (e.g., 'SmFeV_3378.hdf5'). "
-             "If not specified, all HDF5 files in the datasets folder will be processed."
+        help="Process a specific HDF5 file from the datasets folder (e.g., 'NdCeFeB_4_6.hdf5'). "
+        "If not specified, all HDF5 files in the datasets folder will be processed.",
     )
     parser.add_argument(
-        "-m", "--mass-fraction",
+        "-m",
+        "--mass-fraction",
         action="store_true",
-        help="Include mass_fraction in the output YAML files"
+        help="Include mass_fraction in the output YAML files",
     )
     parser.add_argument(
-        "-z", "--create-zip",
+        "-z",
+        "--create-zip",
         action="store_true",
-        help="Create a zip file containing all HDF5 and generated YAML files"
+        help="Create a zip file containing all HDF5 and generated YAML files",
     )
     parser.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Suppress verbose output"
+        "-q", "--quiet", action="store_true", help="Suppress verbose output"
     )
 
     args = parser.parse_args()
@@ -1890,7 +1966,7 @@ if __name__ == "__main__":
         single_file=args.file,
         verbose=not args.quiet,
         include_mass_fraction=args.mass_fraction,
-        create_zip=args.create_zip
+        create_zip=args.create_zip,
     )
 
     # USAGE EXAMPLES:
@@ -1900,8 +1976,8 @@ if __name__ == "__main__":
     #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py
     #
     # 2. Process a specific file
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --file SmFeV_3378.hdf5
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --file NdCeFeB_4_6.hdf5
     #
     # 3. Include mass fractions in output YAML files
     #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m
@@ -1917,19 +1993,19 @@ if __name__ == "__main__":
     #
     # 6. Combine options:
     #    # Process specific file with mass fractions
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -m
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -m
     #
     #    # Process specific file and create zip
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -z
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -z
     #
     #    # Process all files with mass fractions and zip
     #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m -z
     #
     #    # Process specific file with quiet output
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -q
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -q
     #
     #    # All options combined
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f SmFeV_3378.hdf5 -m -z -q
+    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -m -z -q
     #
     # 7. Show help message with all available options
     #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -h
