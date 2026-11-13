@@ -31,14 +31,14 @@ v0.9 nested layout. The reliable layout marker is the per-group writer version
 
 ## Provenance: NOMAD uploads
 
-`NdCeFeB_2-5.hdf5` is the dataset that was used for the MaMMoS initial dataset
-published on NOMAD:
-
-- MaMMoS initial dataset: doi:10.17172/NOMAD/2025.06.29-4
-- `MaMMoS-NEEL_FeNdCeB_magnets`: doi:10.17172/NOMAD/2025.06.29-2
-
-(These are also listed under "Connected Datasets and their DOIS" in
-`Metadata for upload - comment_NEEL.md`.)
+- `NdCeFeB_2-5.hdf5` is the dataset that was used for the MaMMoS initial dataset
+  published on NOMAD:
+  - MaMMoS initial dataset: doi:10.17172/NOMAD/2025.06.29-4
+  - `MaMMoS-NEEL_FeNdCeB_magnets`: doi:10.17172/NOMAD/2025.06.29-2
+  (These are also listed under "Connected Datasets and their DOIS" in
+  `Metadata for upload - comment_NEEL.md`.)
+- `SmFeV_3378.hdf5` was also shared on NOMAD as a dataset:
+  doi:10.17172/nomad.8wfe-0shj
 
 ## Measurement groups (first level)
 
