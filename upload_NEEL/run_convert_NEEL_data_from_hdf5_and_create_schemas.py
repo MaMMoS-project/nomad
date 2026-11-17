@@ -1983,7 +1983,13 @@ outputs:
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="Process NEEL HDF5 datasets and generate NOMAD schema YAML files",
+        description=(
+            "Process NEEL HDF5 datasets and generate NOMAD schema YAML files. "
+            "NOTE: all YAML files for ALL datasets are currently generated from "
+            "one single template (NEEL_template.archive.yaml) — this can become "
+            "a problem in the future when per-dataset descriptions/templates are "
+            "needed (see TODO in this script and HT_datasets_structure_and_versions.md)."
+        ),
         epilog=_epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
