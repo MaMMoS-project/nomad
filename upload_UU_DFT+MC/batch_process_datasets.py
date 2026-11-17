@@ -7,29 +7,52 @@ Runs run_convert_UU_data_to_h5_and_creat_yaml.py for multiple datasets.
 import subprocess
 import sys
 import os
+import argparse
 from typing import List
+
+from run_convert_UU_data_to_h5_and_creat_yaml import resolve_datasets_dir
 
 
 def main():
     """
     Process multiple UU datasets by running the conversion script for each one.
+    By default all subfolders of the datasets directory are processed
+    (./uppsala-data/data if present, else ./datasets).
     """
 
-    # List of datasets to process
-    datasets_to_process: List[str] = [
-        "Fe12Co4N2",
-        "Co2Fe2H4",
-        "Fe16N2",
-        "Fe3Y",
-        "Fe2.78Nb0.22Y",
-        "Fe2.78Ta0.22Y",
-        "Fe2.78V0.22Y",
-        "Fe2.78Zn0.22Y",
-    ]
+    parser = argparse.ArgumentParser(
+        description="Batch-process all datasets in the datasets directory."
+    )
+    parser.add_argument(
+        "--datasets_dir",
+        nargs="?",
+        default=None,
+        help="Directory containing the datasets (default: ./uppsala-data/data if present, else ./datasets)",
+    )
+    parser.add_argument(
+        "--only",
+        type=str,
+        default=None,
+        help="Comma-separated subset of dataset names to process (default: all)",
+    )
+    args = parser.parse_args()
 
     # Configuration
-    datasets_dir = "./datasets"
-    conversion_script = "run_convert_UU_data_to_h5_and_creat_yaml.py"
+    datasets_dir = resolve_datasets_dir(args.datasets_dir)
+    conversion_script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "run_convert_UU_data_to_h5_and_creat_yaml.py",
+    )
+
+    # List of datasets to process: every subfolder of the datasets directory
+    datasets_to_process: List[str] = sorted(
+        d
+        for d in os.listdir(datasets_dir)
+        if os.path.isdir(os.path.join(datasets_dir, d))
+    )
+    if args.only:
+        only = {name.strip() for name in args.only.split(",") if name.strip()}
+        datasets_to_process = [d for d in datasets_to_process if d in only]
 
     # Check if the conversion script exists
     if not os.path.exists(conversion_script):
