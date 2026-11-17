@@ -178,6 +178,19 @@ Upstream authorship (all Institut Néel): `Advanced_Data_Visualization`
 `DaHU` and `ht-data-parser` (Escouflenfer; ht-data-parser exports HDF5
 "NeXus-inspired" with the MaMMoS ontology and defines the `HtType` enum).
 
+Verified against the files in `datasets/`: the ADV reader
+(`neel_data_vis.readers.read_hdf5`) resolves 289 EDX + 225 MOKE positions on all
+four files and `get_full_dataset()` returns a full 17x17 xarray Dataset for
+`NdCeFeB_4_6.hdf5` (EDX compositions + MOKE coercivity). Gap: on v0.9 files the
+reader looks for `HT_type == 'xrd'` while the ESRF group is `xrd_wafer`, so XRD
+comes back NaN (one-line alias fix in the ADV reader). DaHU's
+`modules/hdf5_compilers/` are writers of the OLD flat format (`HT_class='HTroot'`,
+no `positions/`) and do not read the v0.9 layout. The experimental xarray-based
+conversion script (`run_convert_..._xarray_ADV.py`) and the ADV notebook are not
+needed by the main h5py-based script; they live on branch **`adv-xarray-variant`**
+together with `ADV_xarray_variant.md` (how to install the ADV package and make
+that script run).
+
 ## Conversion script support (branch `neel-ht-dataset-vs-library`)
 
 - `find_groups_by_ht_type()` detects measurement groups via the `HT_type`

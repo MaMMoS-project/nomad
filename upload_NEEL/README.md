@@ -91,6 +91,31 @@ main(single_file="", create_zip=True)                        # All files with zi
 - Created: Only when `create_zip=True` parameter is used
 - Naming: Timestamped for uniqueness
 
+## Companion Libraries from NEEL (upstream MaMMoS-project repos)
+
+All authored at Institut Néel, CNRS; field names match the ones used here (see
+`HT_datasets_structure_and_versions.md`):
+
+- **`Advanced_Data_Visualization`** (williamrigaut) — reader library `neel_data_vis`
+  (`neel_data_vis.readers.read_hdf5`) plus demo notebook. Reads both the old flat
+  layout and the new v0.9 `positions/` layout: verified `get_all_positions` and
+  `get_full_dataset` on all four datasets in `datasets/` (289 EDX + 225 MOKE
+  positions each; 17x17 xarray Dataset with EDX compositions and MOKE coercivity).
+  Known gap: on v0.9 files XRD is skipped because the reader matches
+  `HT_type == 'xrd'` while new files use `xrd_wafer` (one-line alias fix).
+  The experimental xarray-based conversion script
+  (`run_convert_..._xarray_ADV.py`) and the ADV notebook are NOT needed by the
+  main h5py-based script and were moved to the branch **`adv-xarray-variant`**;
+  see `ADV_xarray_variant.md` there for how to make them work (install/clone the
+  ADV package).
+- **`DaHU`** (Escouflenfer) — Dash visualization app; its `modules/hdf5_compilers/`
+  are writers that compile raw instrument files into the OLD flat HDF5 format
+  (`HT_class='HTroot'`, no `positions/`) — they do not read the v0.9 layout of
+  e.g. `NdCeFeB_4_6.hdf5`.
+- **`ht-data-parser`** (Escouflenfer) — newer (2026) parser/writer exporting
+  NeXus-inspired HDF5 with the MaMMoS ontology; defines the canonical `HtType`
+  enum (`xrd, edx, moke, sem, profil`) in `src/enums.py`.
+
 ## Important Notes
 
 ### Requirements
