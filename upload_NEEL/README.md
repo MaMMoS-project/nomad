@@ -19,9 +19,12 @@ project_root/
 ├── run_convert_NEEL_data_from_hdf5_and_create_schemas.py  # Main processing script
 ├── NEEL_template.archive.yaml                             # YAML template file
 ├── datasets/                                              # INPUT: Original HDF5 files
-│   ├── NdCeFeB_2-5.hdf5                                   # Example dataset from NEEL
-│   ├── NdFeB.hdf5                                         # Example dataset from NEEL
+│   ├── NdCeFeB_2-5.hdf5                                   # dataset used for the MaMMoS initial NOMAD dataset
+│   ├── SmFeV_3378.hdf5                                    # also shared on NOMAD (doi:10.17172/nomad.8wfe-0shj)
+│   ├── NdCeFeB_4_6.hdf5                                   # new HT format (nested positions/ layout)
+│   ├── NdCeFeB_3_13.hdf5                                  # new HT format (nested positions/ layout)
 │   └── ...                                                # Other HDF5 files
+├── HT_datasets_structure_and_versions.md                  # HDF5 format versions, field reference, NOMAD DOIs
 ├── generated_schemas/                                      # OUTPUT: Generated YAML schemas
 │   ├── NdCeFeB_2-5_EDX_MOKE_xpos=0_0_ypos=0_0.archive.yaml
 │   ├── NdCeFeB_2-5_EDX_MOKE_xpos=0_0_ypos=10_0.archive.yaml
@@ -36,20 +39,31 @@ project_root/
 ### Basic Workflow
 
 1. **Place original HDF5 datasets** from NEEL into the `datasets/` subfolder
-2. **Run the processing script**:
+2. **Run the processing script** (no arguments = process all HDF5 files in `datasets/`):
    ```bash
    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py
    ```
 3. **Find generated YAML schemas** in the `generated_schemas/` folder
-4. **Optionally create zip files** for NOMAD upload (when `create_zip=True`)
+4. **Optionally create zip files** for NOMAD upload (when `--create-zip` is used)
 
-### Script Options
+### Command-Line Options
+
+```bash
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py            # all datasets in datasets/
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5   # one file
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m         # include mass_fraction
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -z         # create upload zip (can be several GB)
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -q         # quiet (summary only)
+python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -h         # help: examples + available datasets
+```
+
+### Script Options (Python API)
 
 The script provides several functions with different options:
 
 ```python
-# Process single file (default behavior)
-process_single_file()                                        # Default file, no zip
+# No argument processes ALL files in datasets/
+process_single_file()                                        # All files, no zip
 process_single_file("filename.hdf5")                         # Specific file
 process_single_file("filename.hdf5", create_zip=True)        # With zip file
 
@@ -91,10 +105,25 @@ main(single_file="", create_zip=True)                        # All files with zi
 
 ### Data Processing Features
 - Automatic coordinate extraction and verification
+- Measurement groups (EDX, MOKE) are detected via their `HT_type` attribute; both the
+  old flat layout (coordinate groups directly under the measurement group) and the
+  new v0.9 layout (`positions/` sub-group) are supported — see
+  `HT_datasets_structure_and_versions.md` for details and format versions
 - Chemical element identification and atomic fraction calculation
 - Recalculation of atomic fractions including Boron for NdCeFeB compounds
-- MOKE coercivity data integration when available
-- Mass fraction support (optional, commented out by default)
+- MOKE coercivity data integration when available (converted from T to A/m)
+- Mass fraction support (optional, off by default; `-m`/`--mass-fraction`)
+
+### Known Limitations
+- **Single template for all datasets**: all generated YAML files — for every dataset
+  in `datasets/` — are rendered from one hard-coded template,
+  `NEEL_template.archive.yaml`. In particular its `data.description` is one fixed
+  text, so the description is only correct for one dataset (currently the SmFeV
+  film) and wrong for the others (e.g. NdCeFeB_2-5, NdCeFeB_4_6, NdCeFeB_3_13).
+  Per-dataset templates (e.g. `templates/<dataset>_template.archive.yaml` or a
+  `$$description$$` placeholder filled from the HDF5 `sample`/`experiment_info`
+  metadata) are a known missing feature — see the TODO in the script and
+  `HT_datasets_structure_and_versions.md`. The CLI `--help` also prints this warning.
 
 ## File Structure Details
 
