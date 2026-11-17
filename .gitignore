@@ -2,6 +2,9 @@
 .ipynb_checkpoints
 __pycache__
 dataSets
+datasets
+uppsala-data
+upload_UU_DFT+MC/uploads
 .pixi
 pixi.lock
 
