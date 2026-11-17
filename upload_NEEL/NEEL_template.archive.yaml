@@ -45,7 +45,7 @@ definitions:
                 type: np.float64
 data:
   m_def: Sample
-  description: "Data from one sample on a compositionally graded SmFeV film deposited on a Si wafer at CNRS ."
+  description: "Data from one sample on a compositionally graded film deposited on a Si wafer at CNRS ."
   lab_id: 'CNRS Institut Neel'
   institute: 'CNRS Institut Neel'
   short_name: '$$NEEL-Sample-001$$'
