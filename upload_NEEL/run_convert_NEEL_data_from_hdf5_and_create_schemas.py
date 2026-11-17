@@ -53,6 +53,14 @@ datasets are large, as they contain both the original data and generated schemas
 #       in older files (see get_position_group_paths).
 # TODO: after new description was provided 20250626: insert new description of the data set (raw / filtered data)
 # TODO: after new .pdfs are accessible 20250626: reference to the chada-docu as .pdf on mammos-project on github
+# TODO: per-dataset templates (missing feature) — main() hard-codes
+#       NEEL_template.archive.yaml and its data.description is one fixed text
+#       (currently the SmFeV film), but we now process multiple datasets
+#       (NdCeFeB_2-5, SmFeV_3378, NdCeFeB_4_6, NdCeFeB_3_13). Need to select a
+#       template per input file (e.g. templates/<dataset>_template.archive.yaml
+#       with fallback to NEEL_template.archive.yaml) and/or make the description
+#       a $$description$$ placeholder filled per dataset (material, raw vs
+#       filtered ESRF, film name from the HDF5 'sample' group / experiment_info).
 
 
 def compute_stoichiometric_coefficients_from_fractions(nd_fraction, ce_fraction):

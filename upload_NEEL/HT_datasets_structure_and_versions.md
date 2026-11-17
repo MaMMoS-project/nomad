@@ -200,6 +200,16 @@ compositions.
 
 ## Known quirks / open points
 
+- **Missing feature: per-dataset templates.** `main()` hard-codes
+  `NEEL_template.archive.yaml`, and the template's `data.description` is a
+  single fixed text (currently the SmFeV film) — so generated YAMLs for
+  `NdCeFeB_2-5`, `NdCeFeB_4_6`, `NdCeFeB_3_13` carry the wrong description.
+  Needed: select a template per input dataset (e.g.
+  `templates/<dataset>_template.archive.yaml` with fallback to
+  `NEEL_template.archive.yaml`) and/or a `$$description$$` placeholder filled
+  per dataset (material, raw vs filtered ESRF data, film name from the HDF5
+  `sample` group / `experiment_info`). Related script TODOs: insert the new
+  dataset description (raw/filtered), reference CHADA docs as PDF.
 - Root attribute changed over time: `NdCeFeB_2-5.hdf5` uses `HT_class='HTroot'`
   (no root `HT_type`/writer), later files use `HT_type` (`library`/`dataset`)
   plus `library_writer`/`dataset_writer`.
