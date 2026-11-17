@@ -1,0 +1,18 @@
+[workspace]
+channels = ["conda-forge"]
+name = "upload_NEEL"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+h5py = ">=3.14.0,<4"
+matplotlib = ">=3.10.3,<4"
+pathlib = ">=1.0.1,<2"
+tqdm = ">=4.67.1,<5"
+ipykernel = ">=6.29.5,<7"
+fabio = ">=2024.9.0,<2025"
+xarray = ">=2025.6.1,<2026"
+plotly = ">=6.1.2,<7"
+nbformat = ">=5.10.4,<6"
