@@ -18,12 +18,13 @@ The script expects and creates the following directory structure:
 project_root/
 ├── run_convert_NEEL_data_from_hdf5_and_create_schemas.py  # Main processing script
 ├── NEEL_template.archive.yaml                             # YAML template file
-├── datasets/                                              # INPUT: Original HDF5 files
+├── datasets/                                              # INPUT: Original HDF5 files (ships with a README.md placeholder)
+│   ├── README.md                                          # placeholder so the folder exists at checkout; .hdf5 files are gitignored
 │   ├── NdCeFeB_2-5.hdf5                                   # dataset used for the MaMMoS initial NOMAD dataset
 │   ├── SmFeV_3378.hdf5                                    # also shared on NOMAD (doi:10.17172/nomad.8wfe-0shj)
 │   ├── NdCeFeB_4_6.hdf5                                   # new HT format (nested positions/ layout)
 │   ├── NdCeFeB_3_13.hdf5                                  # new HT format (nested positions/ layout)
-│   └── ...                                                # Other HDF5 files
+│   └── ...                                                # Other HDF5 files (obtained from NEEL, not in git)
 ├── HT_datasets_structure_and_versions.md                  # HDF5 format versions, field reference, NOMAD DOIs
 ├── generated_schemas/                                      # OUTPUT: Generated YAML schemas
 │   ├── NdCeFeB_2-5_EDX_MOKE_xpos=0_0_ypos=0_0.archive.yaml
@@ -120,8 +121,10 @@ All authored at Institut Néel, CNRS; field names match the ones used here (see
 
 ### Requirements
 - **Original datasets from NEEL MUST be placed in the `datasets/` subfolder**
+  (the folder ships with a `README.md` placeholder at checkout; the multi-GB
+  `.hdf5` files themselves are gitignored and must be copied in by the user)
 - The `NEEL_template.archive.yaml` template file must be present
-- Python with h5py library is required
+- Python with h5py library is required (use the repo's pixi env)
 
 ### File Size Considerations
 - **ZIP files can become very large** (several GB) if original HDF5 datasets are large
