@@ -37,6 +37,91 @@ def read_2_col_data(filename):
     return alldata[:, 0], alldata[:, 1]
 
 
+def read_intrinsic_properties(file_path):
+    """
+    Read an uppsala-data `intrinsic_properties.yaml` file ('mammos yaml v2').
+
+    Returns a dict {quantity_name: {'value', 'unit', 'ontology_label',
+    'ontology_iri', 'description'}} for each entry in the `data` section,
+    e.g. Js (T), Ms (kA/m), Ku (MJ/m3), Tc (K).
+    """
+    import yaml
+
+    with open(file_path, "rt") as f:
+        content = yaml.safe_load(f)
+    result = {}
+    for name, entry in (content.get("data") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        result[name] = {
+            "value": entry.get("value"),
+            "unit": entry.get("unit"),
+            "ontology_label": entry.get("ontology_label"),
+            "ontology_iri": entry.get("ontology_iri"),
+            "description": entry.get("description"),
+        }
+    return result
+
+
+def read_thermal_csv(file_path):
+    """
+    Read an uppsala-data UppASD `thermal.csv` file ('mammos csv v3').
+
+    The file has a multi-row header: '#' comment lines, then an ontology-label
+    row, a description row, an ontology-IRI row, a unit row and a short-name
+    row (first cell 'T', e.g. T,Ms,Js,E,Cv,chi,U_L), followed by the data.
+
+    Returns (df, meta): df is a pandas DataFrame with the short-name columns,
+    meta is {'columns': [...], 'units': {...}, 'ontology_labels': {...},
+    'ontology_iris': {...}} keyed by short name.
+    """
+    import pandas as pd
+
+    with open(file_path, "rt") as f:
+        lines = f.read().splitlines()
+    body = [(i, l) for i, l in enumerate(lines) if not l.startswith("#") and l.strip()]
+    header_pos = next(
+        k for k, (i, l) in enumerate(body) if l.split(",")[0].strip() == "T"
+    )
+    header_line_idx = body[header_pos][0]
+    df = pd.read_csv(file_path, skiprows=header_line_idx)
+    short_names = [c.strip() for c in body[header_pos][1].split(",")]
+    meta = {
+        "columns": short_names,
+        "units": {},
+        "ontology_labels": {},
+        "ontology_iris": {},
+    }
+    if header_pos >= 4:
+        label_row, _, iri_row, unit_row = (
+            body[header_pos - 4][1],
+            body[header_pos - 3][1],
+            body[header_pos - 2][1],
+            body[header_pos - 1][1],
+        )
+        for name, lab, iri, unit in zip(
+            short_names,
+            label_row.split(","),
+            iri_row.split(","),
+            unit_row.split(","),
+        ):
+            meta["ontology_labels"][name] = lab.strip()
+            meta["ontology_iris"][name] = iri.strip()
+            meta["units"][name] = unit.strip()
+    return df, meta
+
+
+def interpolate_thermal_property(thermal_df, column, temperature):
+    """Linearly interpolate a column of a thermal.csv DataFrame at `temperature` (K)."""
+    return float(
+        np.interp(
+            temperature,
+            thermal_df["T"].to_numpy(),
+            thermal_df[column].to_numpy(),
+        )
+    )
+
+
 def spontaneous_magnetization(
     T: np.ndarray, M_0: float, s: float, T_C: float, p: float, beta: float
 ) -> np.ndarray:
