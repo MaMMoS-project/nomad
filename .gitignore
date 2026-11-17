@@ -6,3 +6,10 @@ dataSets
 pixi.lock
 
 *token*.*
+upload_NEEL/generated_schemas/*.archive.yaml
+upload_NEEL/datasets/*.hdf5
+upload_NEEL/datasets/*.h5
+upload_NEEL/datasets/*.csv
+
+AGENTS.md
+TODO*.md
