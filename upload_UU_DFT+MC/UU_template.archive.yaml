@@ -29,6 +29,14 @@ definitions:
           type: np.float32
           unit: J/m^3
           defaultDisplayUnit: "J/m^3"
+        Tc:
+          type: np.float32
+          unit: K
+          defaultDisplayUnit: "K"
+        Ms:
+          type: np.float32
+          unit: kA/m
+          defaultDisplayUnit: "kA/m"
   
 data:
   m_def: Simulation_data_from_UU
@@ -43,3 +51,5 @@ data:
   Js_0: $Js_0$
   Js_300: $Js_300$
   K1_300: $K1_300$
+  Tc: $Tc$
+  Ms: $Ms$

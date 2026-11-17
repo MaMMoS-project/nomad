@@ -1,8 +1,40 @@
 # Code used to create a upload on Nomad for data from UU
 
-Before starting, **create a folder named `datasets`** in your project directory. This folder will store all simulation datasets to be processed.
+## Data source (new structure)
 
-Into the folder called 'datasets' one should put the simulation dataset to be processed. Each dataset subfolder should have the following structure:
+UU simulation data is available from
+[github.com/MaMMoS-project/uppsala-data](https://github.com/MaMMoS-project/uppsala-data).
+Clone it into this project directory (the clone is gitignored):
+
+```bash
+git clone https://github.com/MaMMoS-project/uppsala-data.git
+```
+
+The scripts default to `./uppsala-data/data` as the datasets directory. Each
+dataset subfolder there (named by a reduced chemical formula, e.g. `Fe12Co4N2`)
+follows the schema in `uppsala-data/dataset-schema.yaml`:
+
+- `metadata.yaml`, `intrinsic_properties.yaml` (derived `Js`, `Ms`, `Ku`, `Tc`
+  with ontology IRIs), `structure.cif` (required); `DOSCAR`, `README.md` (optional)
+- `RSPt/` with `common_input/`, ground-state dirs `gs_x/`, `gs_z/` (optional
+  `gs_y/`; each with `data`, `out_last`, and `hist` XOR `out_MF`), and `Jij/`
+- `UppASD/MC_1/` (optional `MC_2/`, `MC_3/` for Binder-cumulant Tc) with `jfile`,
+  `momfile`, `posfile`, `inpsd.dat`, `thermal.csv` (mammos csv v3 with ontology
+  header; columns T, Ms, Js, E, Cv, chi, U_L), `thermal.dat`
+
+Datasets in this layout are validated with
+`mammos-parser uppsala-data validate-dataset <dataset_dir>` (installed via
+pixi; see `pixi.toml`) plus an internal structural check
+(`packages/check_file_and_folder_structure.py: check_uppsala_structure`). The
+`.archive.yaml` placeholders are filled directly from
+`intrinsic_properties.yaml` (`Js` -> `Js_0`, `Ku` -> `K1_300`, `Tc`, `Ms`), and
+`Js_300` is interpolated from `UppASD/MC_1/thermal.csv` at 300 K.
+
+## Data source (old structure, legacy)
+
+Alternatively, **create a folder named `datasets`** in your project directory.
+Into the folder called 'datasets' one should put the simulation dataset to be
+processed. Each dataset subfolder should have the following structure:
 
 - A `.cif` file containing the crystal structure information.
 - A `.README` file with details about the dataset and the expected results.
@@ -19,11 +51,12 @@ This organization ensures that all relevant data and documentation for each chem
 To process a single dataset, use the `run_convert_UU_data_to_h5_and_creat_yaml.py` script:
 
 ```bash
-# Process a specific dataset (e.g., Fe12Co4N2)
+# Process a specific dataset (e.g., Fe12Co4N2); datasets dir defaults to
+# ./uppsala-data/data if present, else ./datasets
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2
 
 # Process with custom datasets directory
-python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --datasets_dir ./datasets
+python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --datasets_dir ./uppsala-data/data
 ```
 
 ### Processing Multiple Datasets
@@ -31,11 +64,12 @@ python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --data
 To process multiple datasets at once, use the `batch_process_datasets.py` script:
 
 ```bash
-# Process all datasets listed in the batch script
+# Process all subfolders of the datasets directory
 python batch_process_datasets.py
-```
 
-Edit the `datasets_to_process` list in `batch_process_datasets.py` to specify which datasets to process.
+# Process only selected datasets
+python batch_process_datasets.py --only Fe12Co4N2,Co2Fe2H4
+```
 
 ## Output Files
 

@@ -94,5 +94,55 @@ class TestCheckFileAndFolderStructure(unittest.TestCase):
                 self.assertTrue(result, f"Check failed for dataset: {dataset}")
 
 
+class TestUppsaladataStructure(unittest.TestCase):
+    """Tests for the new uppsala-data layout (RSPt/ + UppASD/)."""
+
+    def _make_minimal_dataset(self, root):
+        import os
+
+        for f in ["metadata.yaml", "intrinsic_properties.yaml", "structure.cif"]:
+            open(os.path.join(root, f), "w").close()
+        for f in ["atomdens", "kmap", "spts", "symcof", "symt.inp"]:
+            os.makedirs(os.path.join(root, "RSPt/common_input"), exist_ok=True)
+            open(os.path.join(root, "RSPt/common_input", f), "w").close()
+        for gs in ["gs_x", "gs_z"]:
+            os.makedirs(os.path.join(root, "RSPt", gs), exist_ok=True)
+            for f in ["data", "out_last", "out_MF"]:
+                open(os.path.join(root, "RSPt", gs, f), "w").close()
+        os.makedirs(os.path.join(root, "RSPt/Jij"), exist_ok=True)
+        for f in ["data", "out_last"]:
+            open(os.path.join(root, "RSPt/Jij", f), "w").close()
+        os.makedirs(os.path.join(root, "UppASD/MC_1"), exist_ok=True)
+        for f in ["jfile", "momfile", "posfile", "inpsd.dat", "thermal.csv", "thermal.dat"]:
+            open(os.path.join(root, "UppASD/MC_1", f), "w").close()
+
+    def test_is_uppsala_structure(self):
+        import tempfile
+        from packages.check_file_and_folder_structure import is_uppsala_structure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(is_uppsala_structure(tmp))
+            self._make_minimal_dataset(tmp)
+            self.assertTrue(is_uppsala_structure(tmp))
+
+    def test_check_uppsala_structure_ok(self):
+        import tempfile
+        from packages.check_file_and_folder_structure import check_uppsala_structure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._make_minimal_dataset(tmp)
+            self.assertTrue(check_uppsala_structure(tmp, verbose="off"))
+
+    def test_check_uppsala_structure_missing_file(self):
+        import os
+        import tempfile
+        from packages.check_file_and_folder_structure import check_uppsala_structure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._make_minimal_dataset(tmp)
+            os.remove(os.path.join(tmp, "UppASD/MC_1/thermal.csv"))
+            self.assertFalse(check_uppsala_structure(tmp, verbose="off"))
+
+
 if __name__ == "__main__":
     unittest.main()
