@@ -1,0 +1,91 @@
+import os
+import tempfile
+import unittest
+
+from packages.nomad_archive_extras import (
+    mammos_entity_records,
+    records_for_computed,
+    structure_run_section,
+)
+
+MINIMAL_CIF = """data_test
+_cell_length_a 5.0
+_cell_length_b 5.0
+_cell_length_c 6.0
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'P 1'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0.0 0.0 0.0
+"""
+
+SAMPLE_PROPS = {
+    "Js": {
+        "value": 2.003,
+        "unit": "T",
+        "ontology_label": "SpontaneousMagneticPolarization",
+        "ontology_iri": "https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd",
+        "description": "",
+    },
+    "Tc": {
+        "value": 1410.0,
+        "unit": "K",
+        "ontology_label": "CurieTemperature",
+        "ontology_iri": "https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d",
+        "description": "Tc from peak in specific heat",
+    },
+}
+
+
+class TestStructureRunSection(unittest.TestCase):
+    def test_cif_parsed_to_run_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = os.path.join(tmp, "structure.cif")
+            with open(cif, "w") as f:
+                f.write(MINIMAL_CIF)
+            run = structure_run_section(cif)
+        self.assertEqual(run["program"]["name"], "Structure File Importer")
+        atoms = run["system"][0]["atoms"]
+        self.assertEqual(atoms["labels"], ["Fe"])
+        self.assertEqual(atoms["species"], [26])
+        # lattice converted to meters
+        self.assertAlmostEqual(atoms["lattice_vectors"][0][0], 5.0e-10)
+        self.assertAlmostEqual(atoms["lattice_vectors"][2][2], 6.0e-10)
+        self.assertEqual(atoms["periodic"], [True, True, True])
+
+
+class TestMammosEntityRecords(unittest.TestCase):
+    def test_records_from_intrinsic_properties(self):
+        records = mammos_entity_records(SAMPLE_PROPS)
+        by_name = {r["name"]: r for r in records}
+        self.assertEqual(set(by_name), {"Js", "Tc"})
+        tc = by_name["Tc"]
+        self.assertEqual(tc["value_key"], "Tc")
+        self.assertEqual(tc["ontology_label"], "CurieTemperature")
+        self.assertEqual(
+            tc["ontology_iri"],
+            "https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d",
+        )
+        self.assertEqual(tc["unit"], "K")
+        self.assertEqual(by_name["Js"]["value_key"], "Js_0")
+
+    def test_records_for_computed(self):
+        records = records_for_computed(2.0, 1.8, 3.2e6)
+        by_key = {r["value_key"]: r for r in records}
+        self.assertEqual(set(by_key), {"Js_0", "Js_300", "K1_300"})
+        self.assertEqual(
+            by_key["Js_0"]["ontology_label"], "SpontaneousMagneticPolarization"
+        )
+        self.assertEqual(by_key["K1_300"]["ontology_label"], "UniaxialAnisotropyConstant")
+        for r in records:
+            self.assertTrue(r["ontology_iri"].startswith("https://w3id.org/emmo"))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -30,6 +30,20 @@ pixi; see `pixi.toml`) plus an internal structural check
 `intrinsic_properties.yaml` (`Js` -> `Js_0`, `Ku` -> `K1_300`, `Tc`, `Ms`), and
 `Js_300` is interpolated from `UppASD/MC_1/thermal.csv` at 300 K.
 
+The generated archive additionally carries ontology metadata, following
+MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
+
+- a repeating `mammos_entities` subsection lists each quantity with its
+  `name`, `value_key`, `ontology_label`, `ontology_iri` (MaMMoS/EMMO
+  magnetic-materials ontology), `unit` and `description` — e.g. `Tc` is
+  stored as `CurieTemperature` with IRI
+  `https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d`;
+- `structure.cif` is parsed locally with ASE and embedded as an inline
+  top-level `run` section (plus `metadata: {domain: dft}`), so NOMAD shows a
+  3-D structure preview in the entry overview; the `.cif` itself is also
+  copied to the zip root as `cif_structure_<dataset>.cif` (raw data /
+  provenance — NOMAD never reads the cif at upload time).
+
 ## Data source (old structure, legacy)
 
 Alternatively, **create a folder named `datasets`** in your project directory.

@@ -20,24 +20,40 @@ definitions:
         Js_0:
           type: np.float32
           unit: T
-          defaultDisplayUnit: "T"          
+          defaultDisplayUnit: "T"
+          description: "Spontaneous magnetic polarization at 0 K | ontology: SpontaneousMagneticPolarization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd](https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd)"
         Js_300:
           type: np.float32
           unit: T
           defaultDisplayUnit: "T"
+          description: "Spontaneous magnetic polarization at 300 K | ontology: SpontaneousMagneticPolarization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd](https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd)"
         K1_300:
           type: np.float32
           unit: J/m^3
           defaultDisplayUnit: "J/m^3"
+          description: "Magnetocrystalline anisotropy constant at 300 K | ontology: UniaxialAnisotropyConstant | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_49a882d1-9ce7-522b-91e7-3a460f25f5ac](https://w3id.org/emmo/domain/magnetic-materials#EMMO_49a882d1-9ce7-522b-91e7-3a460f25f5ac)"
         Tc:
           type: np.float32
           unit: K
           defaultDisplayUnit: "K"
+          description: "Curie temperature | ontology: CurieTemperature | IRI: [https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d](https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d)"
         Ms:
           type: np.float32
           unit: kA/m
           defaultDisplayUnit: "kA/m"
-  
+          description: "Spontaneous magnetization | ontology: SpontaneousMagnetization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_032731f8-874d-5efb-9c9d-6dafaa17ef25](https://w3id.org/emmo/domain/magnetic-materials#EMMO_032731f8-874d-5efb-9c9d-6dafaa17ef25)"
+      sub_sections:
+        mammos_entities:
+          repeats: true
+          section:
+            quantities:
+              name: {type: str}
+              value_key: {type: str}
+              source_type: {type: str}
+              ontology_label: {type: str}
+              ontology_iri: {type: str}
+              unit: {type: str}
+              description: {type: str}
 data:
   m_def: Simulation_data_from_UU
   chemical_formula: $chemical_formula$
@@ -53,3 +69,4 @@ data:
   K1_300: $K1_300$
   Tc: $Tc$
   Ms: $Ms$
+  mammos_entities: $mammos_entities$

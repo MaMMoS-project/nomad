@@ -15,6 +15,7 @@ scipy = ">=1.15.2,<2"
 matplotlib = ">=3.10.3,<4"
 ipykernel = ">=6.29.5,<7"
 pyyaml = ">=6.0.2,<7"
+ase = ">=3.23,<4"  # parse structure.cif into the NOMAD run section (structure preview)
 #requests = ">=2.32.3,<3"
 #pint = ">=0.24.4,<0.25"
 

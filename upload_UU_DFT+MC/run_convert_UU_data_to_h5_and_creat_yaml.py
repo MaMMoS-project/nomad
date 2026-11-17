@@ -81,15 +81,12 @@ def main():
     print(f"Running: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
 
-    # Create a new archive.yaml file from the template
-    template = os.path.join(SCRIPT_DIR, "UU_template.archive.yaml")
-    with open(template, "r") as f:
-        content = f.read()
-
-    # Compute the values for the template placeholders
+    # Compute the values for the archive fields
     from packages import data_tests_functions as dtf
+    from packages import nomad_archive_extras as nae
 
     intrinsic_file = os.path.join(subfolder_path, "intrinsic_properties.yaml")
+    props = None
     if cffs.is_uppsala_structure(subfolder_path) and os.path.isfile(intrinsic_file):
         # New uppsala-data layout: take the derived intrinsic properties
         # (Js, Ms, Ku, Tc) directly from intrinsic_properties.yaml.
@@ -131,28 +128,44 @@ def main():
         tc = None
         ms = None
 
-    def fmt(value):
-        if value is None:
-            return "null"
-        if value == 0:
-            return "0"
-        return str(dtf.round_to_significant_digits(value, 4))
+    def rnd(value):
+        if value is None or value == 0:
+            return value
+        return dtf.round_to_significant_digits(value, 4)
 
-    # Replace placeholders in template
-    content = content.replace("$chemical_formula$", subfolder)
-    content = content.replace("$filename.h5$", f"{subfolder}.h5")
-    content = content.replace("$Js_300$", fmt(js_300))
-    content = content.replace("$K1_300$", fmt(k1_300))
-    content = content.replace("$Js_0$", fmt(js_0))
-    content = content.replace("$Tc$", fmt(tc))
-    content = content.replace("$Ms$", fmt(ms))
+    # Create the archive.yaml from the template (structured fill)
+    import yaml
+
+    template = os.path.join(SCRIPT_DIR, "UU_template.archive.yaml")
+    with open(template, "r") as f:
+        doc = yaml.safe_load(f)
+    data = doc["data"]
+    data["chemical_formula"] = subfolder
+    data["Js_0"] = rnd(js_0)
+    data["Js_300"] = rnd(js_300)
+    data["K1_300"] = rnd(k1_300)
+    data["Tc"] = rnd(tc)
+    data["Ms"] = rnd(ms)
+    if props is not None:
+        data["mammos_entities"] = nae.mammos_entity_records(props)
+    else:
+        data["mammos_entities"] = nae.records_for_computed(js_0, js_300, k1_300)
+
+    # Embed the crystal structure as an inline top-level run section (parsed
+    # locally with ASE), so NOMAD shows a 3-D structure preview in the entry
+    # overview (server-side OptimadeNormalizer via metadata.domain=dft).
+    # The .cif itself is shipped in the zip as raw data (see below).
+    cif_path = os.path.join(subfolder_path, "structure.cif")
+    if os.path.isfile(cif_path):
+        doc["run"] = [nae.structure_run_section(cif_path)]
+        doc["metadata"] = {"domain": "dft"}
 
     with open(yaml_file, "w") as f:
-        f.write(content)
+        yaml.safe_dump(doc, f, sort_keys=False, allow_unicode=True)
     print(f"Created {yaml_file}")
     print(
-        f"Js_0: {fmt(js_0)} T, Js_300: {fmt(js_300)} T, K1_300: {fmt(k1_300)} J/m^3, "
-        f"Tc: {fmt(tc)} K, Ms: {fmt(ms)} kA/m"
+        f"Js_0: {rnd(js_0)} T, Js_300: {rnd(js_300)} T, K1_300: {rnd(k1_300)} J/m^3, "
+        f"Tc: {rnd(tc)} K, Ms: {rnd(ms)} kA/m"
     )
 
     # Create a .zip containing the .h5, .yaml files, all content of source_dir in a 'datasets' subfolder, and the packages folder
@@ -167,6 +180,12 @@ def main():
         notebook_file = os.path.join(SCRIPT_DIR, "Evaluation_dataset_UU.ipynb")
         if os.path.exists(notebook_file):
             zipf.write(notebook_file, arcname=os.path.basename(notebook_file))
+
+        # Add the crystal structure file to the root of the zip as raw data
+        # (the parsed structure is embedded in the archive.yaml run section)
+        cif_path = os.path.join(subfolder_path, "structure.cif")
+        if os.path.isfile(cif_path):
+            zipf.write(cif_path, arcname=f"cif_structure_{subfolder}.cif")
 
         # Add all content from the original source_dir to a 'datasets/[source_dir_name]' subfolder in the zip
         for root, dirs, files in os.walk(subfolder_path):
