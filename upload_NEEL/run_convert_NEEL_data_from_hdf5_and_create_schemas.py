@@ -1951,9 +1951,41 @@ def merge_edx_and_moke_data(all_coordinate_data):
 
 
 if __name__ == "__main__":
+    # Build the help epilog: usage examples plus the datasets currently
+    # available in the datasets/ folder (so --help shows valid -f arguments)
+    _script_name = os.path.basename(__file__)
+    _datasets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
+    _available = (
+        sorted(f for f in os.listdir(_datasets_dir) if f.endswith(".hdf5"))
+        if os.path.isdir(_datasets_dir)
+        else []
+    )
+    _available_str = (
+        "\n".join(f"  - {f}" for f in _available)
+        if _available
+        else "  (no .hdf5 files found in datasets/)"
+    )
+    _epilog = f"""examples:
+  python {_script_name}                     process all HDF5 files in datasets/ (default)
+  python {_script_name} -f NdCeFeB_4_6.hdf5   process a single file
+  python {_script_name} -m                    include mass_fraction in the YAML output
+  python {_script_name} -z                    also create an upload zip (can be several GB)
+  python {_script_name} -q                    quiet output (summary only)
+  python {_script_name} -h                    show this help and exit
+
+available datasets in datasets/:
+{_available_str}
+
+outputs:
+  generated_schemas/*.archive.yaml   one NOMAD archive YAML per wafer position
+  uploads/*.zip                      only with -z/--create-zip
+"""
+
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="Process NEEL HDF5 datasets and generate NOMAD schema YAML files"
+        description="Process NEEL HDF5 datasets and generate NOMAD schema YAML files",
+        epilog=_epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "-f",
@@ -1988,56 +2020,3 @@ if __name__ == "__main__":
         include_mass_fraction=args.mass_fraction,
         create_zip=args.create_zip,
     )
-
-    # USAGE EXAMPLES:
-    # ================================================================================
-    #
-    # 1. Process all HDF5 files in datasets/ folder (default)
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py
-    #
-    # 2. Process a specific file
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --file NdCeFeB_4_6.hdf5
-    #
-    # 3. Include mass fractions in output YAML files
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --mass-fraction
-    #
-    # 4. Create a zip file for NOMAD upload
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -z
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --create-zip
-    #
-    # 5. Suppress verbose output (quiet mode)
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -q
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --quiet
-    #
-    # 6. Combine options:
-    #    # Process specific file with mass fractions
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -m
-    #
-    #    # Process specific file and create zip
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -z
-    #
-    #    # Process all files with mass fractions and zip
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -m -z
-    #
-    #    # Process specific file with quiet output
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -q
-    #
-    #    # All options combined
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -f NdCeFeB_4_6.hdf5 -m -z -q
-    #
-    # 7. Show help message with all available options
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py -h
-    #    python run_convert_NEEL_data_from_hdf5_and_create_schemas.py --help
-    #
-    # ================================================================================
-    #
-    # AVAILABLE OPTIONS:
-    # -f, --file FILE       : Process a specific HDF5 file from datasets/ folder
-    # -m, --mass-fraction   : Include mass_fraction in output YAML files
-    # -z, --create-zip      : Create a zip file containing HDF5 and YAML files
-    # -q, --quiet           : Suppress verbose output (minimal mode)
-    # -h, --help            : Show help message
-    #
-    # ===============================================================================

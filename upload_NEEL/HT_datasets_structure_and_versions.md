@@ -191,6 +191,8 @@ Upstream authorship (all Institut Néel): `Advanced_Data_Visualization`
   `NdCeFeB_3_13` and contains no `edx` substring.
 - Running without arguments processes all `*.hdf5` in `datasets/`; CLI:
   `-f/--file`, `-m/--mass-fraction`, `-z/--create-zip`, `-q/--quiet`, `-h/--help`.
+  `--help` prints usage examples and the list of datasets currently available
+  in `datasets/` (valid `-f` arguments).
 
 Verification (all four datasets): 4 × 289 EDX positions + 4 × 225 MOKE
 positions, 2056/2056 coordinate matches and 3395/3395 element verifications
