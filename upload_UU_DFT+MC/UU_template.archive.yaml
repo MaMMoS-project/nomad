@@ -17,31 +17,31 @@ definitions:
           type: str
         owner:
           type: str
-        Js_0:
+        # Quantity names/units follow the mammos-entity names as-is
+        # (Js, Ku, Tc, Ms from intrinsic_properties.yaml); Js_300 is the
+        # Js curve interpolated at 300 K from UppASD/MC_1/thermal.csv.
+        # Descriptions with ontology label/IRI are filled at runtime from
+        # the mammos files / mammos-entity, not hardcoded here.
+        Js:
           type: np.float32
           unit: T
           defaultDisplayUnit: "T"
-          description: "Spontaneous magnetic polarization at 0 K | ontology: SpontaneousMagneticPolarization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd](https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd)"
         Js_300:
           type: np.float32
           unit: T
           defaultDisplayUnit: "T"
-          description: "Spontaneous magnetic polarization at 300 K | ontology: SpontaneousMagneticPolarization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd](https://w3id.org/emmo/domain/magnetic-materials#EMMO_db6f7b13-1f1d-584f-9d73-47939b86a7cd)"
-        K1_300:
+        Ku:
           type: np.float32
-          unit: J/m^3
-          defaultDisplayUnit: "J/m^3"
-          description: "Magnetocrystalline anisotropy constant at 300 K | ontology: UniaxialAnisotropyConstant | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_49a882d1-9ce7-522b-91e7-3a460f25f5ac](https://w3id.org/emmo/domain/magnetic-materials#EMMO_49a882d1-9ce7-522b-91e7-3a460f25f5ac)"
+          unit: MJ/m^3
+          defaultDisplayUnit: "MJ/m^3"
         Tc:
           type: np.float32
           unit: K
           defaultDisplayUnit: "K"
-          description: "Curie temperature | ontology: CurieTemperature | IRI: [https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d](https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d)"
         Ms:
           type: np.float32
           unit: kA/m
           defaultDisplayUnit: "kA/m"
-          description: "Spontaneous magnetization | ontology: SpontaneousMagnetization | IRI: [https://w3id.org/emmo/domain/magnetic-materials#EMMO_032731f8-874d-5efb-9c9d-6dafaa17ef25](https://w3id.org/emmo/domain/magnetic-materials#EMMO_032731f8-874d-5efb-9c9d-6dafaa17ef25)"
       sub_sections:
         mammos_entities:
           repeats: true
@@ -61,12 +61,14 @@ data:
   lab_id: 'Uppsala_University'
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'
   method: 'DFT'
+  name: $name$
+  short_name: $short_name$
 
   description: "Data for atomistic and spin-dynamics calculations done within the project MaMMoS at Uppsala University.\nA juypter-notebook showing how to handle the data can be found next to the raw data. \n\nAdditional information on the datasets and corresponding MODA diagrams can be found on https://mammos-project.github.io/resources.html ."
 
-  Js_0: $Js_0$
+  Js: $Js$
   Js_300: $Js_300$
-  K1_300: $K1_300$
+  Ku: $Ku$
   Tc: $Tc$
   Ms: $Ms$
   mammos_entities: $mammos_entities$

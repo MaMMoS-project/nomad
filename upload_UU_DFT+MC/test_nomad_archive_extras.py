@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 from packages.nomad_archive_extras import (
+    chemical_formula_from_name,
     mammos_entity_records,
     records_for_computed,
     structure_run_section,
@@ -60,12 +61,21 @@ class TestStructureRunSection(unittest.TestCase):
         self.assertEqual(atoms["periodic"], [True, True, True])
 
 
+class TestChemicalFormulaFromName(unittest.TestCase):
+    def test_plain_and_comment_suffix(self):
+        self.assertEqual(chemical_formula_from_name("Fe12Co4N2"), "Fe12Co4N2")
+        self.assertEqual(chemical_formula_from_name("Nd1.5Ce0.5Fe14B"), "Nd1.5Ce0.5Fe14B")
+        self.assertEqual(chemical_formula_from_name("Fe16N2_exp_str"), "Fe16N2")
+        self.assertEqual(chemical_formula_from_name("Nd2Fe14B_method1"), "Nd2Fe14B")
+
+
 class TestMammosEntityRecords(unittest.TestCase):
     def test_records_from_intrinsic_properties(self):
         records = mammos_entity_records(SAMPLE_PROPS)
         by_name = {r["name"]: r for r in records}
         self.assertEqual(set(by_name), {"Js", "Tc"})
         tc = by_name["Tc"]
+        # mammos-entity names are used as-is for name and value_key
         self.assertEqual(tc["value_key"], "Tc")
         self.assertEqual(tc["ontology_label"], "CurieTemperature")
         self.assertEqual(
@@ -73,16 +83,17 @@ class TestMammosEntityRecords(unittest.TestCase):
             "https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d",
         )
         self.assertEqual(tc["unit"], "K")
-        self.assertEqual(by_name["Js"]["value_key"], "Js_0")
+        self.assertEqual(by_name["Js"]["value_key"], "Js")
 
     def test_records_for_computed(self):
-        records = records_for_computed(2.0, 1.8, 3.2e6)
+        records = records_for_computed(2.0, 1.8, 3.2)  # ku in MJ/m^3
         by_key = {r["value_key"]: r for r in records}
-        self.assertEqual(set(by_key), {"Js_0", "Js_300", "K1_300"})
+        self.assertEqual(set(by_key), {"Js", "Js_300", "Ku"})
         self.assertEqual(
-            by_key["Js_0"]["ontology_label"], "SpontaneousMagneticPolarization"
+            by_key["Js"]["ontology_label"], "SpontaneousMagneticPolarization"
         )
-        self.assertEqual(by_key["K1_300"]["ontology_label"], "UniaxialAnisotropyConstant")
+        self.assertEqual(by_key["Ku"]["ontology_label"], "UniaxialAnisotropyConstant")
+        self.assertEqual(by_key["Ku"]["unit"], "MJ/m3")
         for r in records:
             self.assertTrue(r["ontology_iri"].startswith("https://w3id.org/emmo"))
 

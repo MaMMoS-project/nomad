@@ -17,12 +17,40 @@ crystal structure, following the approach of MaMMoS-project/to-nomad
   uppsala-data intrinsic_properties.yaml (or from mammos_entity itself).
 """
 
-import os
-
 ANGSTROM_TO_METER = 1e-10
 
-# Mapping from intrinsic_properties.yaml keys to the NOMAD template quantities
-ME_VALUE_KEY = {"Js": "Js_0", "Ms": "Ms", "Ku": "K1_300", "Tc": "Tc"}
+
+def ontology_description(ontology_label="", ontology_iri="", extra=""):
+    """Build a quantity description string from ontology metadata, e.g.
+    'Ku from force theorem | ontology: UniaxialAnisotropyConstant | IRI: [...]'."""
+    parts = []
+    if extra:
+        parts.append(extra)
+    if ontology_label:
+        parts.append(f"ontology: {ontology_label}")
+    if ontology_iri:
+        parts.append(f"IRI: [{ontology_iri}]({ontology_iri})")
+    return " | ".join(parts)
+
+
+def chemical_formula_from_name(name):
+    """Best-effort chemical formula from an uppsala-data folder name.
+
+    The folder-name convention (uppsala-data README) is a reduced chemical
+    formula with an optional '_<description>' suffix, e.g. 'Nd2Fe14B',
+    'Nd1.5Ce0.5Fe14B' or 'Fe16N2_exp_str' -> 'Fe16N2'.
+    """
+    return name.split("_", 1)[0]
+
+
+def mammos_yaml_description(file_path):
+    """Top-level 'description' of a mammos yaml v2 file (e.g.
+    intrinsic_properties.yaml), or None if empty/absent."""
+    import yaml
+
+    with open(file_path, "rt") as f:
+        content = yaml.safe_load(f)
+    return (content.get("description") or "").strip() or None
 
 
 def structure_run_section(cif_path):
@@ -60,18 +88,15 @@ def mammos_entity_records(props):
     intrinsic_properties.yaml dict (see data_tests_functions.read_intrinsic_properties).
 
     Each record: name, value_key, source_type, ontology_label, ontology_iri,
-    unit, description. value_key maps the entity to the NOMAD template
-    quantity (ME_VALUE_KEY); entities without a mapping are skipped.
+    unit, description. The mammos-entity name is used as-is for both `name`
+    and `value_key` (the NOMAD template quantity has the same name).
     """
     records = []
     for name, entry in props.items():
-        value_key = ME_VALUE_KEY.get(name)
-        if value_key is None:
-            continue
         records.append(
             {
                 "name": name,
-                "value_key": value_key,
+                "value_key": name,
                 "source_type": "Entity",
                 "ontology_label": entry.get("ontology_label") or "",
                 "ontology_iri": entry.get("ontology_iri") or "",
@@ -91,28 +116,29 @@ def _ontology_info(entity):
     }
 
 
-def records_for_computed(js_0, js_300, k1_300):
+def records_for_computed(js_0, js_300, ku_mj):
     """Build ``mammos_entities`` records for the old-layout pipeline, where
-    Js_0/Js_300/K1_300 are computed from raw output files. Ontology metadata
+    Js/Js_300/Ku are computed from raw output files. Ontology metadata
     is taken from mammos_entity (MaMMoS/EMMO magnetic-materials ontology).
+    ku_mj is the anisotropy constant in MJ/m^3 (template unit of Ku).
     """
     import mammos_entity as me
 
     records = []
-    for name, value_key, entity in [
-        ("Js_0", "Js_0", me.Js(js_0 if js_0 is not None else 0.0, "T")),
-        ("Js_300", "Js_300", me.Js(js_300 if js_300 is not None else 0.0, "T")),
-        ("K1_300", "K1_300", me.Ku(k1_300 if k1_300 is not None else 0.0, "J/m3")),
+    for name, entity, unit in [
+        ("Js", me.Js(js_0 if js_0 is not None else 0.0, "T"), "T"),
+        ("Js_300", me.Js(js_300 if js_300 is not None else 0.0, "T"), "T"),
+        ("Ku", me.Ku(ku_mj if ku_mj is not None else 0.0, "MJ/m3"), "MJ/m3"),
     ]:
         info = _ontology_info(entity)
         records.append(
             {
                 "name": name,
-                "value_key": value_key,
+                "value_key": name,
                 "source_type": "Entity",
                 "ontology_label": info["ontology_label"],
                 "ontology_iri": info["ontology_iri"],
-                "unit": info["unit"],
+                "unit": unit,
                 "description": getattr(entity, "description", "") or "",
             }
         )

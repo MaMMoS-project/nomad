@@ -30,6 +30,22 @@ pixi; see `pixi.toml`) plus an internal structural check
 `intrinsic_properties.yaml` (`Js` -> `Js_0`, `Ku` -> `K1_300`, `Tc`, `Ms`), and
 `Js_300` is interpolated from `UppASD/MC_1/thermal.csv` at 300 K.
 
+### Change from the prior static solution
+
+Earlier versions mapped the mammos-entity values onto fixed template
+quantities: `Ku` was written to `K1_300` (labelled "Magnetocrystalline
+anisotropy constant at 300 K") with a MJ/m^3 -> J/m^3 conversion, and `Js`
+to `Js_0`. This was wrong: the ME `Ku` (ontology label
+`UniaxialAnisotropyConstant`) is not "K1 at 300 K". Now the mammos-entity
+**variable names, ontology labels and units are used as-is** — the archive
+quantities are `Js`, `Ku` (MJ/m^3), `Tc`, `Ms` (plus `Js_300`, the Js curve
+interpolated at 300 K from `thermal.csv`), and quantity/entry descriptions
+are filled at runtime from `intrinsic_properties.yaml` / the EMMO ontology
+instead of being hardcoded in the template. In the `.h5` file the new-layout
+path already stored the ME names and the per-entry `description` from the
+yaml (e.g. `Tc` -> "Tc from peak in specific heat"); only the old-layout path
+keeps hardcoded descriptions.
+
 The generated archive additionally carries ontology metadata, following
 MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
 
@@ -38,11 +54,21 @@ MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
   magnetic-materials ontology), `unit` and `description` — e.g. `Tc` is
   stored as `CurieTemperature` with IRI
   `https://w3id.org/emmo#EMMO_6b5af5a8_a2d8_4353_a1d6_54c9f778343d`;
-- `structure.cif` is parsed locally with ASE and embedded as an inline
-  top-level `run` section (plus `metadata: {domain: dft}`), so NOMAD shows a
-  3-D structure preview in the entry overview; the `.cif` itself is also
-  copied to the zip root as `cif_structure_<dataset>.cif` (raw data /
-  provenance — NOMAD never reads the cif at upload time).
+- With `--cif auto/on`, `structure.cif` is parsed locally with ASE and
+  embedded as an inline top-level `run` section (plus
+  `metadata: {domain: dft}`), so NOMAD shows a 3-D structure preview in the
+  entry overview; the `.cif` itself is also copied to the zip root as
+  `cif_structure_<dataset>.cif` (raw data / provenance — NOMAD never reads
+  the cif at upload time). When the run section is embedded,
+  `chemical_formula` is **omitted** from the archive: keeping both makes the
+  `Chemical` base section derive `elements` from the formula, which collides
+  with the system-derived composition of the run section (server-side
+  `ResultsNormalizer` error: "Could not populate compositional data as
+  'elements' is already defined", observed on a Fe12Co4N2 upload). With the
+  default `--cif off`, no run section is embedded and `chemical_formula`
+  (folder name without `_comment` suffix) is used instead.
+- entry `name` / `short_name` are filled (`UU-DFT+MC-<dataset>` /
+  `UU-<dataset>`) so they no longer show "no value" in Data -> Quantities.
 
 ## Data source (old structure, legacy)
 
@@ -71,6 +97,13 @@ python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2
 
 # Process with custom datasets directory
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --datasets_dir ./uppsala-data/data
+
+# Control the cif embedding (3-D structure preview). Default is OFF: no run
+# section is embedded and chemical_formula (from the folder name, '_comment'
+# suffix stripped) is used for the Material section. Use 'auto' to embed
+# structure.cif when present, 'on' to require it. Note: with the run section
+# embedded, chemical_formula must be omitted (server-side collision).
+python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --cif auto
 ```
 
 ### Processing Multiple Datasets

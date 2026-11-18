@@ -21,5 +21,5 @@ ase = ">=3.23,<4"  # parse structure.cif into the NOMAD run section (structure p
 
 [pypi-dependencies]
 # validator/generator for the uppsala-data dataset structure (https://github.com/MaMMoS-project/uppsala-data)
-mammos-parser = ">=0.1.0"
+mammos-parser = ">=0.1.0" # includes also mammos-entity
 #nomad-lab = ">=0.10.4, <0.11"

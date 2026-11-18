@@ -44,6 +44,14 @@ def main():
         default=None,
         help="Directory containing the datasets (default: ./uppsala-data/data if present, else ./datasets)",
     )
+    parser.add_argument(
+        "--cif",
+        choices=["auto", "on", "off"],
+        default="off",
+        help="Embed structure.cif as inline NOMAD run section (3-D structure preview): "
+        "'off' (default) = never embed it, chemical_formula from the folder name is used; "
+        "'auto' = embed if structure.cif exists; 'on' = require it",
+    )
     args = parser.parse_args()
     subfolder = args.source_dir
     datasets_dir = resolve_datasets_dir(args.datasets_dir)
@@ -59,6 +67,18 @@ def main():
     if structure_ok is False:
         print(f"Error: dataset '{subfolder_path}' failed the structure validation.")
         sys.exit(1)
+
+    # Whether to embed the cif as an inline run section (structure preview)
+    cif_path = os.path.join(subfolder_path, "structure.cif")
+    use_cif = args.cif == "on" or (args.cif == "auto" and os.path.isfile(cif_path))
+    if args.cif == "on" and not os.path.isfile(cif_path):
+        print(f"Error: --cif on but no structure.cif in {subfolder_path}")
+        sys.exit(1)
+    if not use_cif:
+        print(
+            "cif not embedded (--cif off or no structure.cif): "
+            "chemical_formula from the folder name will be used instead."
+        )
 
     script = os.path.join(SCRIPT_DIR, "convert_UU_data_to_h5.py")
     h5_file = os.path.join(datasets_dir, f"{subfolder}.h5")
@@ -89,23 +109,23 @@ def main():
     props = None
     if cffs.is_uppsala_structure(subfolder_path) and os.path.isfile(intrinsic_file):
         # New uppsala-data layout: take the derived intrinsic properties
-        # (Js, Ms, Ku, Tc) directly from intrinsic_properties.yaml.
+        # (Js, Ms, Ku, Tc) directly from intrinsic_properties.yaml, using the
+        # mammos-entity names/labels/units as-is (Ku stays in MJ/m^3).
         props = dtf.read_intrinsic_properties(intrinsic_file)
-        js_0 = props.get("Js", {}).get("value")
-        ku_mj = props.get("Ku", {}).get("value")  # MJ/m^3
+        js = props.get("Js", {}).get("value")
+        ku = props.get("Ku", {}).get("value")  # MJ/m^3
         tc = props.get("Tc", {}).get("value")
         ms = props.get("Ms", {}).get("value")
         # Js at 300 K from the MC thermal curve, if available
         thermal_csv = os.path.join(subfolder_path, "UppASD", "MC_1", "thermal.csv")
-        js_300 = js_0
+        js_300 = js
         if os.path.isfile(thermal_csv):
             thermal_df, _ = dtf.read_thermal_csv(thermal_csv)
             if "Js" in thermal_df.columns:
                 js_300 = dtf.interpolate_thermal_property(thermal_df, "Js", 300.0)
-        k1_300 = ku_mj * 1e6 if ku_mj is not None else None  # MJ/m^3 -> J/m^3
         print(
-            f"From intrinsic_properties.yaml: Js={js_0} T, Ms={ms} kA/m, "
-            f"Ku={ku_mj} MJ/m^3, Tc={tc} K"
+            f"From intrinsic_properties.yaml: Js={js} T, Ms={ms} kA/m, "
+            f"Ku={ku} MJ/m^3, Tc={tc} K"
         )
         print(f"Js at 300 K (interpolated from thermal.csv): {js_300} T")
     else:
@@ -124,7 +144,9 @@ def main():
             dtf.get_unit_cell_volume(os.path.join(subfolder_path, "GS/x/out_last")),
             plot_Js=False,
         )
-        k1_300 = K_300
+        # Old layout computes K_300 in J/m^3; the template quantity Ku uses MJ/m^3
+        js = Js_0
+        ku = K_300 / 1e6 if K_300 is not None else None
         tc = None
         ms = None
 
@@ -140,31 +162,78 @@ def main():
     with open(template, "r") as f:
         doc = yaml.safe_load(f)
     data = doc["data"]
-    data["chemical_formula"] = subfolder
-    data["Js_0"] = rnd(js_0)
+    if not use_cif:
+        # No embedded structure: provide the chemical formula so the NOMAD
+        # Chemical base section populates formula/elements (Material section).
+        formula = nae.chemical_formula_from_name(subfolder)
+        data["chemical_formula"] = formula
+        import re
+
+        if not re.fullmatch(r"([A-Z][a-z]?[0-9.]*)+", formula):
+            print(
+                f"Warning: folder name '{subfolder}' -> formula '{formula}' does not "
+                "look like a plain chemical formula; NOMAD may not parse it."
+            )
+    data["name"] = f"UU-DFT+MC-{subfolder}"
+    data["short_name"] = f"UU-{subfolder}"
+    data["Js"] = rnd(js)
     data["Js_300"] = rnd(js_300)
-    data["K1_300"] = rnd(k1_300)
+    data["Ku"] = rnd(ku)
     data["Tc"] = rnd(tc)
     data["Ms"] = rnd(ms)
     if props is not None:
         data["mammos_entities"] = nae.mammos_entity_records(props)
     else:
-        data["mammos_entities"] = nae.records_for_computed(js_0, js_300, k1_300)
+        data["mammos_entities"] = nae.records_for_computed(js, js_300, ku)
+
+    # Fill quantity descriptions and the entry description from the mammos
+    # files / ontology (not hardcoded in the template).
+    quantities = doc["definitions"]["sections"]["Simulation_data_from_UU"]["quantities"]
+    if props is not None:
+        for q in ["Js", "Ku", "Tc", "Ms"]:
+            entry = props.get(q, {})
+            quantities[q]["description"] = nae.ontology_description(
+                entry.get("ontology_label") or "",
+                entry.get("ontology_iri") or "",
+                entry.get("description") or "",
+            )
+        js_entry = props.get("Js", {})
+        quantities["Js_300"]["description"] = nae.ontology_description(
+            js_entry.get("ontology_label") or "",
+            js_entry.get("ontology_iri") or "",
+            "Spontaneous magnetic polarization at 300 K "
+            "(interpolated from UppASD/MC_1/thermal.csv)",
+        )
+        yaml_desc = nae.mammos_yaml_description(intrinsic_file)
+        if yaml_desc:
+            data["description"] = f"{data.get('description') or ''}\n{yaml_desc}".strip()
+    else:
+        for r in data["mammos_entities"]:
+            if r["value_key"] in quantities:
+                quantities[r["value_key"]]["description"] = nae.ontology_description(
+                    r["ontology_label"], r["ontology_iri"], r["description"]
+                )
 
     # Embed the crystal structure as an inline top-level run section (parsed
     # locally with ASE), so NOMAD shows a 3-D structure preview in the entry
     # overview (server-side OptimadeNormalizer via metadata.domain=dft).
     # The .cif itself is shipped in the zip as raw data (see below).
-    cif_path = os.path.join(subfolder_path, "structure.cif")
-    if os.path.isfile(cif_path):
+    if use_cif:
         doc["run"] = [nae.structure_run_section(cif_path)]
         doc["metadata"] = {"domain": "dft"}
+        # Do NOT keep chemical_formula together with the inline run section:
+        # the Chemical base section would derive `elements` from the formula,
+        # colliding with the system-derived composition of the run section
+        # (server-side ResultsNormalizer error: "Could not populate
+        # compositional data as 'elements' is already defined"). The
+        # composition is derived from the embedded structure instead.
+        data.pop("chemical_formula", None)
 
     with open(yaml_file, "w") as f:
         yaml.safe_dump(doc, f, sort_keys=False, allow_unicode=True)
     print(f"Created {yaml_file}")
     print(
-        f"Js_0: {rnd(js_0)} T, Js_300: {rnd(js_300)} T, K1_300: {rnd(k1_300)} J/m^3, "
+        f"Js: {rnd(js)} T, Js_300: {rnd(js_300)} T, Ku: {rnd(ku)} MJ/m^3, "
         f"Tc: {rnd(tc)} K, Ms: {rnd(ms)} kA/m"
     )
 
