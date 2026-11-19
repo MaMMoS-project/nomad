@@ -113,7 +113,15 @@ python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2
 
 # Process with custom datasets directory
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --datasets_dir ./uppsala-data/data
+```
 
+Note: `--datasets_dir` only locates the parent folder containing the dataset
+subfolders. Each run of `run_convert_UU_data_to_h5_and_creat_yaml.py` processes
+exactly ONE dataset — the one named by `--source_dir`. Giving `--datasets_dir`
+alone does NOT loop over all datasets in that folder. For that, use the batch
+script below.
+
+```bash
 # Control the cif embedding in the .archive.yaml (3-D structure preview).
 # Default is OFF: no run section is embedded and chemical_formula (from the
 # folder name, '_comment' suffix stripped) is used for the Material section.
@@ -127,15 +135,24 @@ python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --cif 
 
 ### Processing Multiple Datasets
 
-To process multiple datasets at once, use the `batch_process_datasets.py` script:
+To process multiple datasets at once, use the `batch_process_datasets.py` script. It iterates over all subfolders of the datasets directory and calls `run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir <name> --datasets_dir <dir>` once per dataset, continuing past failures and printing a summary at the end:
 
 ```bash
-# Process all subfolders of the datasets directory
+# Process ALL subfolders of the datasets directory
+# (default: ./uppsala-data/data if present, else ./datasets)
 python batch_process_datasets.py
 
-# Process only selected datasets
+# Batch with a custom datasets directory
+python batch_process_datasets.py --datasets_dir ./uppsala-data/data
+
+# Process only selected datasets (comma-separated names)
 python batch_process_datasets.py --only Fe12Co4N2,Co2Fe2H4
 ```
+
+Notes:
+- The batch script runs each dataset with the default `--cif off` (it does not forward a `--cif` flag); run the single-dataset command with `--cif auto|on` for datasets that need the embedded structure preview.
+- Equivalent manual alternative (shell loop):
+  `for d in uppsala-data/data/*/; do python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir "$(basename "$d")"; done`
 
 ## Output Files
 

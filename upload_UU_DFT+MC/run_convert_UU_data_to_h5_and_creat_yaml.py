@@ -30,19 +30,35 @@ def main():
     import zipfile
 
     parser = argparse.ArgumentParser(
-        description="Run convert_UU_data_to_h5.py for a subfolder and create a matching archive.yaml file."
+        description="Run convert_UU_data_to_h5.py for ONE dataset subfolder and create a "
+        "matching .archive.yaml file + upload zip.",
+        epilog="""examples:
+  %(prog)s --source_dir Fe12Co4N2
+      process a single dataset (datasets dir defaults to ./uppsala-data/data
+      if present, else ./datasets)
+  %(prog)s --source_dir Fe12Co4N2 --datasets_dir ./uppsala-data/data
+      same with an explicit datasets directory. NOTE: --datasets_dir only
+      locates the parent folder -- exactly one dataset (--source_dir) is
+      processed per run, not all subfolders.
+  python batch_process_datasets.py [--datasets_dir DIR] [--only A,B,C]
+      batch mode: process ALL subfolders of the datasets directory (or a
+      comma-separated subset with --only), one run_convert invocation each
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--source_dir",
         nargs="?",
         default="Fe12Co4N2",
-        help="Subfolder name under the datasets directory (default: Fe12Co4N2)",
+        help="Subfolder name under the datasets directory; exactly this one dataset is processed (default: Fe12Co4N2)",
     )
     parser.add_argument(
         "--datasets_dir",
         nargs="?",
         default=None,
-        help="Directory containing the datasets (default: ./uppsala-data/data if present, else ./datasets)",
+        help="Parent directory containing the dataset subfolders (default: ./uppsala-data/data "
+        "if present, else ./datasets). Does NOT trigger batch processing -- use "
+        "batch_process_datasets.py to process all subfolders",
     )
     parser.add_argument(
         "--cif",

@@ -21,19 +21,31 @@ def main():
     """
 
     parser = argparse.ArgumentParser(
-        description="Batch-process all datasets in the datasets directory."
+        description="Batch-process datasets: runs run_convert_UU_data_to_h5_and_creat_yaml.py "
+        "once per subfolder of the datasets directory (one .h5 + .archive.yaml + upload "
+        "zip each). Use the runner directly for a single dataset.",
+        epilog="""examples:
+  %(prog)s
+      process ALL subfolders of the default datasets directory
+  %(prog)s --datasets_dir ./uppsala-data/data
+      process all subfolders of an explicit datasets directory
+  %(prog)s --only Fe12Co4N2,Co2Fe2H4
+      process only the listed datasets (comma-separated)
+Note: each dataset is processed with the runner's defaults (--cif off).
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--datasets_dir",
         nargs="?",
         default=None,
-        help="Directory containing the datasets (default: ./uppsala-data/data if present, else ./datasets)",
+        help="Directory whose subfolders are the datasets (default: ./uppsala-data/data if present, else ./datasets)",
     )
     parser.add_argument(
         "--only",
         type=str,
         default=None,
-        help="Comma-separated subset of dataset names to process (default: all)",
+        help="Comma-separated subset of dataset names to process (default: all subfolders)",
     )
     args = parser.parse_args()
 
