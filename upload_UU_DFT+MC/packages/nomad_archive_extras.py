@@ -15,7 +15,15 @@ crystal structure, following the approach of MaMMoS-project/to-nomad
   ontology_iri, unit, description) for the archive, with the ontology
   metadata from the MaMMoS/EMMO magnetic-materials ontology as stored in
   uppsala-data intrinsic_properties.yaml (or from mammos_entity itself).
+- dataset_collection() / raw_data_collection(): build one mammos-entity
+  EntityCollection per uppsala-data dataset (sub-collections
+  'intrinsic_properties', 'thermal_MC_*' and 'raw_data') for writing with
+  EntityCollection.to_hdf5().
 """
+
+import os
+
+import numpy as np
 
 ANGSTROM_TO_METER = 1e-10
 
@@ -31,6 +39,101 @@ def ontology_description(ontology_label="", ontology_iri="", extra=""):
     if ontology_iri:
         parts.append(f"IRI: [{ontology_iri}]({ontology_iri})")
     return " | ".join(parts)
+
+
+# Template quantity -> candidate h5 dataset paths for HDF5Normalizer linking.
+# New uppsala-data layout (mammos collection written with to_hdf5) stores the
+# intrinsic properties under /intrinsic_properties/; the old hand-written
+# layout stored them in /results/ (Js/Ku/Tc/Ms or Js_0/K1_300/Js_300).
+H5_RESULT_ALIASES = {
+    "Js": ["/intrinsic_properties/Js", "/results/Js", "/results/Js_0"],
+    "Js_300": ["/results/Js_300"],
+    "Ku": ["/intrinsic_properties/Ku", "/results/Ku", "/results/K1_300"],
+    "Tc": ["/intrinsic_properties/Tc", "/results/Tc"],
+    "Ms": ["/intrinsic_properties/Ms", "/results/Ms"],
+}
+
+
+def h5_results_map(h5_file):
+    """Map template quantities to h5 dataset paths for HDF5Normalizer linking.
+
+    Returns {quantity_name: h5_path} for every template quantity whose alias
+    path exists in the h5 file (checked with h5py).
+    """
+    import h5py
+
+    mapping = {}
+    try:
+        with h5py.File(h5_file, "r") as f:
+            for qname, paths in H5_RESULT_ALIASES.items():
+                for p in paths:
+                    if p in f:
+                        mapping[qname] = p
+                        break
+    except OSError:
+        pass
+    return mapping
+
+
+def raw_data_collection(source_dir, exclude_DOSCAR=False):
+    """Mirror a dataset folder tree into a nested mammos EntityCollection.
+
+    Plain values are stored as plain h5 datasets by EntityCollection.to_hdf5
+    (arrays as numeric datasets, texts as string datasets). .csv files are
+    parsed as numeric arrays (mammos csv v3 headers handled via
+    data_tests_functions.read_thermal_csv); all other files are read as text.
+    """
+    import mammos_entity as me
+
+    from . import data_tests_functions as dtf
+
+    def build(d):
+        col = me.EntityCollection(description=f"raw data: {os.path.relpath(d, source_dir)}")
+        for name in sorted(os.listdir(d)):
+            p = os.path.join(d, name)
+            if os.path.isdir(p):
+                col[name] = build(p)
+                continue
+            if exclude_DOSCAR and name == "DOSCAR":
+                continue
+            if name.endswith(".csv"):
+                try:
+                    col[name] = np.loadtxt(p, delimiter=",")
+                except ValueError:
+                    df, _ = dtf.read_thermal_csv(p)
+                    col[name] = df.to_numpy()
+            else:
+                with open(p, "r", encoding="utf-8", errors="ignore") as fh:
+                    col[name] = fh.read()
+        return col
+
+    return build(source_dir)
+
+
+def dataset_collection(source_dir, exclude_DOSCAR=False, include_raw=True):
+    """Build one mammos-entity EntityCollection for an uppsala-data dataset:
+    'intrinsic_properties' (from intrinsic_properties.yaml, via me.from_yaml),
+    one 'thermal_MC_<n>' per UppASD/MC_*/thermal.csv (via me.from_csv), and
+    'raw_data' (the folder tree). Written with collection.to_hdf5() it is
+    readable back with me.from_hdf5() and linkable from NOMAD via
+    m_annotations.hdf5.path (e.g. /intrinsic_properties/Js).
+    """
+    import mammos_entity as me
+
+    intrinsic_file = os.path.join(source_dir, "intrinsic_properties.yaml")
+    col = me.EntityCollection(
+        description=f"UU DFT+MC dataset {os.path.basename(os.path.abspath(source_dir))}"
+    )
+    col["intrinsic_properties"] = me.from_yaml(intrinsic_file)
+    uppasd = os.path.join(source_dir, "UppASD")
+    if os.path.isdir(uppasd):
+        for mc in sorted(d for d in os.listdir(uppasd) if d.startswith("MC_")):
+            tcsv = os.path.join(uppasd, mc, "thermal.csv")
+            if os.path.isfile(tcsv):
+                col[f"thermal_{mc}"] = me.from_csv(tcsv)
+    if include_raw:
+        col["raw_data"] = raw_data_collection(source_dir, exclude_DOSCAR=exclude_DOSCAR)
+    return col
 
 
 def chemical_formula_from_name(name):

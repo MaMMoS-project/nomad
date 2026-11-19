@@ -50,15 +50,51 @@ local) for the cif-intent discussion.
   ontology_iri, unit, description. Quantity and entry descriptions are filled
   at runtime from the ME yaml / ontology, not hardcoded.
 - Entry `name` = `UU-DFT+MC-<folder>`, `short_name` = `UU-<folder>`.
+- Schema base sections: plain `nomad.datamodel.data.EntryData` +
+  `nomad.datamodel.metainfo.basesections.HDF5Normalizer` — **no ELN
+  `Chemical` base** (unlike the original UU template and IFW), so the new
+  NOMAD UI (2.0) shows `datetime`/`chemical_formula`/etc. read-only instead
+  of as editable input fields; `chemical_formula` is declared as our own
+  quantity and filled from the folder name when `--cif off`.
+- h5 linking: the section declares a `data_file: str` quantity set to
+  `<name>.h5` — REQUIRED, because NOMAD's `HDF5Normalizer.normalize()`
+  (nomad/datamodel/metainfo/basesections/v1.py) opens any *string* quantity
+  whose value matches `*.h5` as `<upload>/raw/<value>`; if the quantity is
+  not declared in the section, the value is dropped at parse time and no
+  mapping happens (observed as "no value" for all h5-linked quantities on a
+  Fe12Co4N2 upload). Every quantity present in the h5 `results` group gets
+  `m_annotations: {hdf5: {path: /results/<name>}}` and no inline value
+  (filled server-side by HDF5Normalizer — same mechanism as to-nomad's
+  `hdf_reference_mode`). Quantities not in the h5 (e.g. `Js_300` for new
+  datasets) are written inline. See `h5_results_map()` in
+  `packages/nomad_archive_extras.py` (old-layout aliases: Js→Js_0,
+  Ku→K1_300, Js_300→Js_300).
+- The `.h5` is now a genuine **mammos-entity collection file**: for the new
+  uppsala-data layout, `convert_UU_data_to_h5.py` builds one
+  `EntityCollection` via `dataset_collection()` (`packages/nomad_archive_extras.py`)
+  — sub-collections `intrinsic_properties` (from `intrinsic_properties.yaml`
+  via `me.from_yaml`), one `thermal_MC_<n>` per `UppASD/MC_*/thermal.csv`
+  (via `me.from_csv`), and `raw_data` (full folder tree, plain datasets) —
+  and writes it with `collection.to_hdf5(h5f, name=None)` into the h5py file
+  that already carries the H5MD/creator attrs. Verified: `me.from_hdf5()`
+  reads it back as nested EntityCollections with full `Entity` leaves
+  (ontology_label/ontology_iri/unit/description attrs, EMMO IRIs); the
+  NOMAD h5-linking annotations point at the new paths
+  (`/intrinsic_properties/Js`, …; old-layout h5 files still map via
+  `/results/...` aliases). Old GS/Jij/MC layout keeps the hand-written
+  `/results/` h5.
 
 ## cif / structure preview (optional, default OFF)
 
-- `--cif off` (default): no structure embedded; `chemical_formula` from the
-  folder name populates the Material section (Chemical base section).
+- `--cif off` (default): no structure embedded in the yaml; `chemical_formula`
+  (own quantity, from the folder name) populates the Material section.
 - `--cif auto/on`: `structure.cif` parsed locally with ASE -> inline
   top-level `run` section + `metadata: {domain: dft}` (OptimadeNormalizer
-  renders the 3-D preview server-side); cif copied to zip root as
-  `cif_structure_<name>.cif`. With the run section embedded,
+  renders the 3-D preview server-side); `chemical_formula` omitted then.
+- Independently of `--cif`, the `.cif` is **always** shipped in the zip when
+  present: as `cif_structure_<name>.cif` at the zip root and under
+  `datasets/<name>/structure.cif` (raw data / provenance). `--cif` only
+  changes the `.archive.yaml`. With the run section embedded,
   `chemical_formula` MUST be omitted — otherwise the server-side
   ResultsNormalizer fails with "Could not populate compositional data as
   'elements' is already defined" (observed on a Fe12Co4N2 upload
@@ -79,6 +115,16 @@ but declared only transitively — consider adding it explicitly.
 
 ## Known limitations / open items
 
+- **3-D cif preview deferred (TODO)**: `--cif auto/on` embedding works, but
+  the chemical-composition collision (`chemical_formula` vs run-section
+  elements, server-side ResultsNormalizer error) must be solved NOMAD-side
+  first (cf. `Nomad_cif demo_xVP6STRzQ-aYY1sSr-2cLg`). Until then the default
+  is `--cif off` (formula from folder name; cif still shipped in the zip as
+  raw data). Re-test the preview after the NOMAD-side fix.
+- Automatic testing: see `validation_overview.md` (untracked, local) for the
+  two-level validation model (local `validate_archive_locally.py` with pinned
+  nomad-lab, server-side processing on upload); transferring it to this
+  project (and e.g. upload_NEEL) is planned, not implemented.
 - Old-layout (GS/Jij/MC) support kept for legacy datasets; its h5 descriptions
   are hardcoded strings.
 - TODO (from TODO_WH.md): export not only Js/Ku/Ms/Tc but the full thermal

@@ -4,6 +4,7 @@ import unittest
 
 from packages.nomad_archive_extras import (
     chemical_formula_from_name,
+    h5_results_map,
     mammos_entity_records,
     records_for_computed,
     structure_run_section,
@@ -67,6 +68,44 @@ class TestChemicalFormulaFromName(unittest.TestCase):
         self.assertEqual(chemical_formula_from_name("Nd1.5Ce0.5Fe14B"), "Nd1.5Ce0.5Fe14B")
         self.assertEqual(chemical_formula_from_name("Fe16N2_exp_str"), "Fe16N2")
         self.assertEqual(chemical_formula_from_name("Nd2Fe14B_method1"), "Nd2Fe14B")
+
+
+class TestH5ResultsMap(unittest.TestCase):
+    def test_mammos_collection_layout(self):
+        import h5py
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5 = os.path.join(tmp, "x.h5")
+            with h5py.File(h5, "w") as f:
+                for k in ["Js", "Ku", "Tc", "Ms"]:
+                    f.create_dataset(f"intrinsic_properties/{k}", data=1.0)
+            m = h5_results_map(h5)
+        self.assertEqual(
+            m,
+            {
+                "Js": "/intrinsic_properties/Js",
+                "Ku": "/intrinsic_properties/Ku",
+                "Tc": "/intrinsic_properties/Tc",
+                "Ms": "/intrinsic_properties/Ms",
+            },
+        )
+
+    def test_old_layout_aliases(self):
+        import h5py
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5 = os.path.join(tmp, "x.h5")
+            with h5py.File(h5, "w") as f:
+                for k in ["Js_0", "Js_300", "K1_300"]:
+                    f.create_dataset(f"results/{k}", data=1.0)
+            m = h5_results_map(h5)
+        self.assertEqual(m["Js"], "/results/Js_0")
+        self.assertEqual(m["Js_300"], "/results/Js_300")
+        self.assertEqual(m["Ku"], "/results/K1_300")
+        self.assertNotIn("Tc", m)
+
+    def test_missing_file(self):
+        self.assertEqual(h5_results_map("/nonexistent.h5"), {})
 
 
 class TestMammosEntityRecords(unittest.TestCase):

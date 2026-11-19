@@ -19,6 +19,7 @@ import datetime
 import json
 from packages import data_tests_functions as dtf
 from packages import check_file_and_folder_structure as cffs
+from packages import nomad_archive_extras as nae
 
 parser = argparse.ArgumentParser(
     description="Convert folder structure and files to HDF5."
@@ -79,6 +80,9 @@ if js_minimal:
 if os.path.exists(hdf5_file):
     os.remove(hdf5_file)
 
+intrinsic_file = os.path.join(source_dir, "intrinsic_properties.yaml")
+new_mode = structure == "new" and os.path.isfile(intrinsic_file)
+
 with h5py.File(hdf5_file, "w") as h5f:
     # Save script version in HDF5 file attributes
     h5f.attrs["conversion_script_version"] = __version__
@@ -92,8 +96,19 @@ with h5py.File(hdf5_file, "w") as h5f:
     creator.attrs["author"] = "Wilfried Hortschitz"
     creator.attrs["date"] = datetime.datetime.now().isoformat()
 
-    # Only export raw_data if not js_minimal
-    if not js_minimal:
+    if new_mode:
+        # New uppsala-data layout: write the whole dataset as ONE mammos-entity
+        # collection (sub-collections 'intrinsic_properties', 'thermal_MC_*'
+        # and 'raw_data') via collection.to_hdf5(). Readable back with
+        # me.from_hdf5(); NOMAD links quantities via m_annotations.hdf5.path
+        # (e.g. /intrinsic_properties/Js).
+        col = nae.dataset_collection(
+            source_dir, exclude_DOSCAR=exclude_DOSCAR, include_raw=not js_minimal
+        )
+        col.to_hdf5(h5f, name=None)
+
+    # Only export raw_data if not js_minimal (old layout)
+    if not new_mode and not js_minimal:
         raw_data_group = h5f.require_group("raw_data")
         for root, dirs, files in os.walk(source_dir):
             rel_path = os.path.relpath(root, source_dir)
@@ -119,31 +134,10 @@ with h5py.File(hdf5_file, "w") as h5f:
                         text = f.read()
                     group.create_dataset(file, data=text)
 
-    # Always create the 'results' group and store Js as a dataset, with unit as a subgroup (H5MD style) and link as its attribute
-    results_group = h5f.require_group("results")
-
-    # composition_dataset = results_group.create_dataset("composition", data="Co2Fe16Y6")
-    # composition_dataset_array = results_group.create_dataset(
-    #     "composition_in_array", data=["Co2Fe16Y6"]
-    # )
-
-    intrinsic_file = os.path.join(source_dir, "intrinsic_properties.yaml")
-
-    if structure == "new" and os.path.isfile(intrinsic_file):
-        # New uppsala-data layout: store the derived intrinsic properties
-        # (Js, Ms, Ku, Tc) directly, with their ontology metadata as attrs.
-        props = dtf.read_intrinsic_properties(intrinsic_file)
-        for name, entry in props.items():
-            ds = results_group.create_dataset(name, data=entry["value"])
-            if entry.get("unit"):
-                ds.attrs["unit"] = entry["unit"]
-            if entry.get("ontology_label"):
-                ds.attrs["link_in_ontology"] = entry["ontology_label"]
-            if entry.get("ontology_iri"):
-                ds.attrs["ontology_iri"] = entry["ontology_iri"]
-            if entry.get("description"):
-                ds.attrs["description"] = entry["description"]
-    else:
+    if not new_mode:
+        # Old GS/Jij/MC layout: compute the results from the raw output files
+        # into a hand-written 'results' group.
+        results_group = h5f.require_group("results")
         mammos_data = dtf.get_mammos_data(source_dir)
 
         # TODO: add BHmax (what's that?), Lex, Tc (why? it will not be precise),

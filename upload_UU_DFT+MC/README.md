@@ -69,6 +69,22 @@ MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
   (folder name without `_comment` suffix) is used instead.
 - entry `name` / `short_name` are filled (`UU-DFT+MC-<dataset>` /
   `UU-<dataset>`) so they no longer show "no value" in Data -> Quantities.
+- The schema uses plain `EntryData` + `HDF5Normalizer` base sections (no ELN
+  `Chemical` base), so the new NOMAD UI shows entry fields (datetime,
+  chemical_formula, ...) read-only instead of as input fields, and
+  `chemical_formula` is declared as our own quantity (filled from the folder
+  name when `--cif off`).
+- The generated `.h5` is linked via `data_file` (a `str` quantity that MUST be
+  declared in the section — NOMAD's `HDF5Normalizer` opens any string
+  quantity whose value ends in `.h5` as `<upload>/raw/<value>`; without the
+  declared quantity the value is dropped at parse time and nothing is
+  mapped, which showed up as "no value" for all h5-linked quantities).
+  Quantities present in the h5 `results` group (`Js`, `Ku`, `Tc`, `Ms`; old
+  layout: `Js_0`, `K1_300`, `Js_300`) get `m_annotations.hdf5.path:
+  /results/<name>` and no inline value — the server-side `HDF5Normalizer`
+  fills them from the uploaded h5 (same mechanism as to-nomad's
+  `hdf_reference_mode`). Quantities not in the h5 (e.g. `Js_300` for new
+  datasets) are written inline.
 
 ## Data source (old structure, legacy)
 
@@ -98,11 +114,14 @@ python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2
 # Process with custom datasets directory
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --datasets_dir ./uppsala-data/data
 
-# Control the cif embedding (3-D structure preview). Default is OFF: no run
-# section is embedded and chemical_formula (from the folder name, '_comment'
-# suffix stripped) is used for the Material section. Use 'auto' to embed
-# structure.cif when present, 'on' to require it. Note: with the run section
-# embedded, chemical_formula must be omitted (server-side collision).
+# Control the cif embedding in the .archive.yaml (3-D structure preview).
+# Default is OFF: no run section is embedded and chemical_formula (from the
+# folder name, '_comment' suffix stripped) is used for the Material section.
+# Use 'auto' to embed structure.cif when present, 'on' to require it.
+# Note: with the run section embedded, chemical_formula must be omitted
+# (server-side collision). Independently of --cif, the .cif is ALWAYS
+# included in the upload zip as raw data when present
+# (cif_structure_<dataset>.cif at the zip root and under datasets/<dataset>/).
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --cif auto
 ```
 

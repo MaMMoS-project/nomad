@@ -2,9 +2,13 @@ definitions:
   name: 'Simulation data from UU with h5'
   sections:
     Simulation_data_from_UU:
+      # Plain EntryData (no ELN base sections): the new NOMAD UI then shows the
+      # entry fields (datetime, chemical_formula, ...) read-only instead of as
+      # input fields. HDF5Normalizer links the quantities annotated with
+      # m_annotations.hdf5.path to datasets in the uploaded .h5 (data_file).
       base_sections:
-        - 'nomad.datamodel.metainfo.eln.Chemical'
         - 'nomad.datamodel.data.EntryData'
+        - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
       quantities:
         name:
           type: str
@@ -17,11 +21,18 @@ definitions:
           type: str
         owner:
           type: str
+        chemical_formula:
+          type: str
+          description: "Chemical formula (from the dataset folder name; omitted when the cif run-section is embedded, then the composition is derived from the structure)"
+        data_file:
+          type: str
+          description: "Name of the uploaded .h5 file in the same upload (raw/); the HDF5Normalizer base section opens it and fills quantities annotated with m_annotations.hdf5.path"
         # Quantity names/units follow the mammos-entity names as-is
         # (Js, Ku, Tc, Ms from intrinsic_properties.yaml); Js_300 is the
         # Js curve interpolated at 300 K from UppASD/MC_1/thermal.csv.
         # Descriptions with ontology label/IRI are filled at runtime from
-        # the mammos files / mammos-entity, not hardcoded here.
+        # the mammos files / mammos-entity; quantities present in the .h5
+        # get m_annotations.hdf5.path and no inline value.
         Js:
           type: np.float32
           unit: T
@@ -57,6 +68,7 @@ definitions:
 data:
   m_def: Simulation_data_from_UU
   chemical_formula: $chemical_formula$
+  data_file: $data_file$
   institute: 'Uppsala University, Department of Physics and Astronomy; Materials Theory'
   lab_id: 'Uppsala_University'
   owner: 'Heike Herper, Mohammad Nur Hassan, Alena Vishina'

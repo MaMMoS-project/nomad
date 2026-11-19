@@ -176,11 +176,19 @@ def main():
             )
     data["name"] = f"UU-DFT+MC-{subfolder}"
     data["short_name"] = f"UU-{subfolder}"
-    data["Js"] = rnd(js)
-    data["Js_300"] = rnd(js_300)
-    data["Ku"] = rnd(ku)
-    data["Tc"] = rnd(tc)
-    data["Ms"] = rnd(ms)
+    quantities = doc["definitions"]["sections"]["Simulation_data_from_UU"]["quantities"]
+
+    # Link the uploaded .h5 as data_file; quantities present in the h5
+    # "results" group are referenced via m_annotations.hdf5.path (filled by
+    # the HDF5Normalizer server-side) and get no inline value here.
+    data["data_file"] = os.path.basename(h5_file)
+    h5_map = nae.h5_results_map(h5_file)
+    for q, val in {"Js": js, "Js_300": js_300, "Ku": ku, "Tc": tc, "Ms": ms}.items():
+        if q in h5_map:
+            quantities[q]["m_annotations"] = {"hdf5": {"path": h5_map[q]}}
+            data.pop(q, None)
+        else:
+            data[q] = rnd(val)
     if props is not None:
         data["mammos_entities"] = nae.mammos_entity_records(props)
     else:
@@ -188,7 +196,6 @@ def main():
 
     # Fill quantity descriptions and the entry description from the mammos
     # files / ontology (not hardcoded in the template).
-    quantities = doc["definitions"]["sections"]["Simulation_data_from_UU"]["quantities"]
     if props is not None:
         for q in ["Js", "Ku", "Tc", "Ms"]:
             entry = props.get(q, {})
@@ -250,8 +257,11 @@ def main():
         if os.path.exists(notebook_file):
             zipf.write(notebook_file, arcname=os.path.basename(notebook_file))
 
-        # Add the crystal structure file to the root of the zip as raw data
-        # (the parsed structure is embedded in the archive.yaml run section)
+        # Add the crystal structure file to the root of the zip as raw data.
+        # This is independent of --cif: the .cif is ALWAYS shipped in the zip
+        # when present (raw data / provenance); --cif only controls whether
+        # the .archive.yaml embeds the parsed run section (preview) or uses
+        # chemical_formula instead.
         cif_path = os.path.join(subfolder_path, "structure.cif")
         if os.path.isfile(cif_path):
             zipf.write(cif_path, arcname=f"cif_structure_{subfolder}.cif")
