@@ -146,6 +146,86 @@ def chemical_formula_from_name(name):
     return name.split("_", 1)[0]
 
 
+def elements_from_formula(formula):
+    """Sorted list of element symbols parsed from a chemical formula string
+    (e.g. from the dataset folder name). Handles fractional formulas like
+    'Nd1.5Ce0.5Fe14B' by scaling to integers (same approach as NOMAD's
+    pymatgen fallback). Raises ValueError if unparseable.
+    """
+    import re
+
+    from ase.data import atomic_numbers
+    from ase.formula import Formula as ASEFormula
+
+    try:
+        count = {k: int(v) for k, v in ASEFormula(formula).count().items()}
+    except Exception:
+        tokens = re.findall(r"([A-Z][a-z]?)([0-9.]*)", formula)
+        if not tokens or "".join(s + n for s, n in tokens) != formula:
+            raise ValueError(f'Could not parse formula "{formula}"')
+        if any(s not in atomic_numbers for s, _ in tokens):
+            raise ValueError(f'Unknown element symbol in "{formula}"')
+        count = {}
+        for s, n in tokens:
+            count[s] = count.get(s, 0) + int(round((float(n) if n else 1.0) * 10))
+    if not count or any(k not in atomic_numbers for k in count):
+        raise ValueError(f'Could not extract elements from "{formula}"')
+    return sorted(count)
+
+
+def dataset_readme(name, values=None):
+    """Simple per-dataset README.md text for the upload (zip root entry
+    '<name>_README.md' and a copy next to the zip in uploads/).
+
+    `values` may hold the computed quantities (Js, Js_300, Ku, Tc, Ms) for the
+    summary line. The name is unique per dataset, so multi-zip uploads to
+    NOMAD never collide on this file (unlike a plain 'README.md' at the zip
+    root, which NOMAD would silently overwrite across zips).
+    """
+    formula = chemical_formula_from_name(name)
+    values = values or {}
+
+    def fmt(key, unit):
+        v = values.get(key)
+        return f"{v} {unit}" if v is not None else "n/a"
+
+    summary = (
+        f"- Js = {fmt('Js', 'T')}, Js(300 K) = {fmt('Js_300', 'T')}\n"
+        f"- Ms = {fmt('Ms', 'kA/m')}, Ku = {fmt('Ku', 'MJ/m^3')}, Tc = {fmt('Tc', 'K')}\n"
+    )
+    return f"""# {name} — UU DFT+MC dataset ({formula})
+
+Atomistic spin-dynamics data (RSPt DFT + UppASD Monte Carlo) for **{formula}**,
+computed at Uppsala University, Department of Physics and Astronomy; Materials
+Theory, within the EU Horizon Europe project **MaMMoS**
+(grant agreement No 101135546, https://mammos-project.github.io/).
+
+## Source
+
+- Raw and derived data: https://github.com/MaMMoS-project/uppsala-data/tree/main/data/{name}
+- The derived files (`intrinsic_properties.yaml`, `UppASD/MC_*/thermal.csv`)
+  are generated and validated with
+  [mammos-parser](https://github.com/MaMMoS-project/mammos-parser); this upload
+  was built with the `upload_UU_DFT+MC` scripts (see `packages/` in the zip).
+
+## Files in this upload
+
+- `{name}.h5` — mammos-entity `EntityCollection` (sub-collections
+  `intrinsic_properties`, `thermal_MC_<n>`, `raw_data`); read it with
+  `import mammos_entity as me; me.from_hdf5('{name}.h5')`
+- `{name}.archive.yaml` — the NOMAD entry; scalar quantities (Js, Ku, Tc, Ms)
+  are linked to the h5, temperature-dependent curves are in the repeating
+  `thermal_properties` subsection; ontology labels/IRIs in `mammos_entities`
+- `cif_structure_{name}.cif` and `datasets/{name}/` — crystal structure and full raw data tree
+- `Evaluation_dataset_UU.ipynb` — how to read and analyse the data
+- `{name}_README.md` — this file
+
+## Intrinsic quantities (with EMMO ontology metadata)
+
+{summary}
+"""
+
+
 def mammos_yaml_description(file_path):
     """Top-level 'description' of a mammos yaml v2 file (e.g.
     intrinsic_properties.yaml), or None if empty/absent."""

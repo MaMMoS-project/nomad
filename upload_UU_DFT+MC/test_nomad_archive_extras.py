@@ -4,6 +4,7 @@ import unittest
 
 from packages.nomad_archive_extras import (
     chemical_formula_from_name,
+    elements_from_formula,
     h5_results_map,
     mammos_entity_records,
     records_for_computed,
@@ -106,6 +107,21 @@ class TestH5ResultsMap(unittest.TestCase):
 
     def test_missing_file(self):
         self.assertEqual(h5_results_map("/nonexistent.h5"), {})
+
+
+class TestElementsFromFormula(unittest.TestCase):
+    def test_simple(self):
+        self.assertEqual(elements_from_formula("ZnFe2Ni9"), ["Fe", "Ni", "Zn"])
+        self.assertEqual(elements_from_formula("Al2Fe6C"), ["Al", "C", "Fe"])
+
+    def test_fractional(self):
+        self.assertEqual(
+            elements_from_formula("Nd1.5Ce0.5Fe14B"), ["B", "Ce", "Fe", "Nd"]
+        )
+
+    def test_unparseable_raises(self):
+        with self.assertRaises(ValueError):
+            elements_from_formula("Fe3-xZnxY(x=0.22)")
 
 
 class TestMammosEntityRecords(unittest.TestCase):

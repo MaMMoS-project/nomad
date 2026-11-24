@@ -2,11 +2,16 @@ definitions:
   name: 'Simulation data from UU with h5'
   sections:
     Simulation_data_from_UU:
-      # Plain EntryData (no ELN base sections): the new NOMAD UI then shows the
-      # entry fields (datetime, chemical_formula, ...) read-only instead of as
-      # input fields. HDF5Normalizer links the quantities annotated with
+      # The ELN 'Chemical' base section (as in the original UU template)
+      # provides the chemical_formula quantity; its normalize() populates
+      # results.material server-side (elements + formula formats), so the
+      # Overview Material section is filled and element search works.
+      # Trade-off: ELN base fields (datetime, chemical_formula, ...) are
+      # editable input fields in the NOMAD 2.0 UI (accepted, matches the
+      # initial datasets). HDF5Normalizer links the quantities annotated with
       # m_annotations.hdf5.path to datasets in the uploaded .h5 (data_file).
       base_sections:
+        - 'nomad.datamodel.metainfo.eln.Chemical'
         - 'nomad.datamodel.data.EntryData'
         - 'nomad.datamodel.metainfo.basesections.HDF5Normalizer'
       quantities:
@@ -21,9 +26,13 @@ definitions:
           type: str
         owner:
           type: str
-        chemical_formula:
+        # List of elements, filled from the dataset folder-name formula
+        # (same source as the ELN Chemical chemical_formula). Independent
+        # data-section quantity — no server-side conflict with chemical_formula.
+        elements:
           type: str
-          description: "Chemical formula (from the dataset folder name; omitted when the cif run-section is embedded, then the composition is derived from the structure)"
+          shape: ['*']
+          description: "Chemical elements of the dataset (from the folder-name formula; omitted when the cif run-section is embedded)"
         data_file:
           type: str
           description: "Name of the uploaded .h5 file in the same upload (raw/); the HDF5Normalizer base section opens it and fills quantities annotated with m_annotations.hdf5.path"
@@ -65,6 +74,38 @@ definitions:
               ontology_iri: {type: str}
               unit: {type: str}
               description: {type: str}
+        # One repeating subsection per UppASD/MC_*/thermal.csv (mammos csv v3):
+        # the temperature-dependent quantities ('Temperature-dependent
+        # quantities computed with UppASD'). The arrays are written inline
+        # (an hdf5.path annotation on the shared quantity definition would
+        # fill only the last repeating instance, see runner comment); the h5
+        # still carries them under /thermal_MC_<n>/<column> as raw data.
+        # The runner extends the quantity list with any extra csv columns.
+        thermal_properties:
+          repeats: true
+          section:
+            quantities:
+              name: {type: str}
+              description: {type: str}
+              T: {type: np.float32, shape: ['*'], unit: K, defaultDisplayUnit: "K"}
+              Ms: {type: np.float32, shape: ['*'], unit: kA/m, defaultDisplayUnit: "kA/m"}
+              Js: {type: np.float32, shape: ['*'], unit: T, defaultDisplayUnit: "T"}
+              E: {type: np.float32, shape: ['*'], unit: eV, defaultDisplayUnit: "eV"}
+              Cv: {type: np.float32, shape: ['*'], unit: eV/K, defaultDisplayUnit: "eV/K"}
+              chi: {type: np.float32, shape: ['*']}
+              U_L: {type: np.float32, shape: ['*']}
+            sub_sections:
+              mammos_entities:
+                repeats: true
+                section:
+                  quantities:
+                    name: {type: str}
+                    value_key: {type: str}
+                    source_type: {type: str}
+                    ontology_label: {type: str}
+                    ontology_iri: {type: str}
+                    unit: {type: str}
+                    description: {type: str}
 data:
   m_def: Simulation_data_from_UU
   chemical_formula: $chemical_formula$

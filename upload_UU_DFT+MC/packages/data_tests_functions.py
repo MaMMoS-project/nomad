@@ -73,7 +73,9 @@ def read_thermal_csv(file_path):
 
     Returns (df, meta): df is a pandas DataFrame with the short-name columns,
     meta is {'columns': [...], 'units': {...}, 'ontology_labels': {...},
-    'ontology_iris': {...}} keyed by short name.
+    'ontology_iris': {...}, 'descriptions': {...}, 'comment': str|None}
+    keyed by short name ('comment' is the joined '# ' header comment, e.g.
+    'Temperature-dependent quantities computed with UppASD').
     """
     import pandas as pd
 
@@ -91,23 +93,32 @@ def read_thermal_csv(file_path):
         "units": {},
         "ontology_labels": {},
         "ontology_iris": {},
+        "descriptions": {},
+        "comment": "\n".join(
+            c
+            for c in (l.lstrip("#").strip() for l in lines if l.startswith("#"))
+            if c and set(c) != {"-"}
+        ).strip()
+        or None,
     }
     if header_pos >= 4:
-        label_row, _, iri_row, unit_row = (
+        label_row, desc_row, iri_row, unit_row = (
             body[header_pos - 4][1],
             body[header_pos - 3][1],
             body[header_pos - 2][1],
             body[header_pos - 1][1],
         )
-        for name, lab, iri, unit in zip(
+        for name, lab, desc, iri, unit in zip(
             short_names,
             label_row.split(","),
+            desc_row.split(","),
             iri_row.split(","),
             unit_row.split(","),
         ):
             meta["ontology_labels"][name] = lab.strip()
             meta["ontology_iris"][name] = iri.strip()
             meta["units"][name] = unit.strip()
+            meta["descriptions"][name] = desc.strip()
     return df, meta
 
 

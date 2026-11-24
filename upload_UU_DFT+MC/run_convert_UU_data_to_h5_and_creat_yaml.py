@@ -179,8 +179,12 @@ def main():
         doc = yaml.safe_load(f)
     data = doc["data"]
     if not use_cif:
-        # No embedded structure: provide the chemical formula so the NOMAD
-        # Chemical base section populates formula/elements (Material section).
+        # No embedded structure: set the ELN Chemical base section's
+        # chemical_formula (from the folder name). Its normalize() populates
+        # results.material server-side (elements + formula formats), which
+        # fills the Overview Material section and enables element search —
+        # the same mechanism as in the original/initial UU uploads.
+        # (Do NOT write `results` directly into the archive.)
         formula = nae.chemical_formula_from_name(subfolder)
         data["chemical_formula"] = formula
         import re
@@ -190,6 +194,12 @@ def main():
                 f"Warning: folder name '{subfolder}' -> formula '{formula}' does not "
                 "look like a plain chemical formula; NOMAD may not parse it."
             )
+        # List of elements alongside chemical_formula (both from the folder
+        # name; no conflict — the ELN Chemical base only reads chemical_formula)
+        try:
+            data["elements"] = nae.elements_from_formula(formula)
+        except ValueError as e:
+            print(f"Warning: could not derive elements from '{formula}': {e}")
     data["name"] = f"UU-DFT+MC-{subfolder}"
     data["short_name"] = f"UU-{subfolder}"
     quantities = doc["definitions"]["sections"]["Simulation_data_from_UU"]["quantities"]
@@ -237,6 +247,59 @@ def main():
                     r["ontology_label"], r["ontology_iri"], r["description"]
                 )
 
+    # Temperature-dependent curves: one repeating 'thermal_properties'
+    # subsection per UppASD/MC_*/thermal.csv (new uppsala-data layout), grouped
+    # under the csv header comment ('Temperature-dependent quantities computed
+    # with UppASD'). The arrays are written INLINE (not h5-linked): the hdf5
+    # annotation path lives on the shared quantity definition and
+    # create_custom_mapping() fills only the LAST repeating instance
+    # (m_get_sub_section(sub_section, -1)), so with several MC_* runs a single
+    # path would map every entry to the same curve. The h5 still carries the
+    # curves under /thermal_MC_<n>/<column> as raw data.
+    thermal_sections = []
+    uppasd_dir = os.path.join(subfolder_path, "UppASD")
+    if os.path.isdir(uppasd_dir):
+        tp_def = doc["definitions"]["sections"]["Simulation_data_from_UU"][
+            "sub_sections"
+        ]["thermal_properties"]["section"]
+        for mc in sorted(os.listdir(uppasd_dir)):
+            csv_path = os.path.join(uppasd_dir, mc, "thermal.csv")
+            if not (mc.startswith("MC_") and os.path.isfile(csv_path)):
+                continue
+            thermal_df, tmeta = dtf.read_thermal_csv(csv_path)
+            sec = {
+                "name": mc,
+                "description": tmeta.get("comment") or "",
+                "mammos_entities": [],
+            }
+            for col in tmeta["columns"]:
+                unit = tmeta["units"].get(col) or ""
+                q_def = tp_def["quantities"].setdefault(
+                    col, {"type": "np.float32", "shape": ["*"]}
+                )
+                if unit and "unit" not in q_def:
+                    q_def["unit"] = unit
+                    q_def["defaultDisplayUnit"] = unit
+                label = tmeta["ontology_labels"].get(col, "")
+                iri = tmeta["ontology_iris"].get(col, "")
+                desc = tmeta["descriptions"].get(col, "")
+                q_def["description"] = nae.ontology_description(label, iri, desc)
+                sec["mammos_entities"].append(
+                    {
+                        "name": col,
+                        "value_key": col,
+                        "source_type": "Entity",
+                        "ontology_label": label,
+                        "ontology_iri": iri,
+                        "unit": unit,
+                        "description": desc,
+                    }
+                )
+                sec[col] = [float(v) for v in thermal_df[col].to_numpy()]
+            thermal_sections.append(sec)
+    if thermal_sections:
+        data["thermal_properties"] = thermal_sections
+
     # Embed the crystal structure as an inline top-level run section (parsed
     # locally with ASE), so NOMAD shows a 3-D structure preview in the entry
     # overview (server-side OptimadeNormalizer via metadata.domain=dft).
@@ -251,6 +314,7 @@ def main():
         # compositional data as 'elements' is already defined"). The
         # composition is derived from the embedded structure instead.
         data.pop("chemical_formula", None)
+        data.pop("elements", None)
 
     with open(yaml_file, "w") as f:
         yaml.safe_dump(doc, f, sort_keys=False, allow_unicode=True)
@@ -259,6 +323,20 @@ def main():
         f"Js: {rnd(js)} T, Js_300: {rnd(js_300)} T, Ku: {rnd(ku)} MJ/m^3, "
         f"Tc: {rnd(tc)} K, Ms: {rnd(ms)} kA/m"
     )
+
+    # Simple per-dataset README: written next to the zip in uploads/ and into
+    # the zip root as '<name>_README.md'. The name is unique per dataset — a
+    # plain 'README.md' at the zip root would be silently overwritten when
+    # several zips are uploaded to NOMAD in one upload.
+    readme_name = f"{subfolder}_README.md"
+    readme_text = nae.dataset_readme(
+        subfolder,
+        {"Js": rnd(js), "Js_300": rnd(js_300), "Ku": rnd(ku), "Tc": rnd(tc), "Ms": rnd(ms)},
+    )
+    readme_path = os.path.join(uploads_dir, readme_name)
+    with open(readme_path, "w") as f:
+        f.write(readme_text)
+    print(f"Created {readme_path}")
 
     # Create a .zip containing the .h5, .yaml files, all content of source_dir in a 'datasets' subfolder, and the packages folder
     with zipfile.ZipFile(zip_filename, "w") as zipf:
@@ -272,6 +350,9 @@ def main():
         notebook_file = os.path.join(SCRIPT_DIR, "Evaluation_dataset_UU.ipynb")
         if os.path.exists(notebook_file):
             zipf.write(notebook_file, arcname=os.path.basename(notebook_file))
+
+        # Add the per-dataset README to the root of the zip (unique name)
+        zipf.write(readme_path, arcname=readme_name)
 
         # Add the crystal structure file to the root of the zip as raw data.
         # This is independent of --cif: the .cif is ALWAYS shipped in the zip

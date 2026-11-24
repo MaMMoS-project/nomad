@@ -50,12 +50,41 @@ local) for the cif-intent discussion.
   ontology_iri, unit, description. Quantity and entry descriptions are filled
   at runtime from the ME yaml / ontology, not hardcoded.
 - Entry `name` = `UU-DFT+MC-<folder>`, `short_name` = `UU-<folder>`.
-- Schema base sections: plain `nomad.datamodel.data.EntryData` +
-  `nomad.datamodel.metainfo.basesections.HDF5Normalizer` — **no ELN
-  `Chemical` base** (unlike the original UU template and IFW), so the new
-  NOMAD UI (2.0) shows `datetime`/`chemical_formula`/etc. read-only instead
-  of as editable input fields; `chemical_formula` is declared as our own
-  quantity and filled from the folder name when `--cif off`.
+- Per-dataset README: `dataset_readme()` (`packages/nomad_archive_extras.py`)
+  renders a short `README.md` (MaMMoS project/acknowledgement, uppsala-data
+  source, zip contents, intrinsic quantities) — written next to the zip as
+  `uploads/<name>_README.md` and into the zip root as `<name>_README.md`
+  (unique per dataset; a plain `README.md` at the root would be silently
+  overwritten when several zips land in one NOMAD upload).
+- Schema base sections: `nomad.datamodel.metainfo.eln.Chemical` (as in the
+  original/initial UU template) + `nomad.datamodel.data.EntryData` +
+  `nomad.datamodel.metainfo.basesections.HDF5Normalizer`.
+- Composition / search: `ResultsNormalizer` (nomad/normalizing/results.py)
+  only fills `results.material` from a `run` section or a measurement sample.
+  The ELN `Chemical` base section (`ElnWithFormulaBaseSection.normalize` in
+  nomad/datamodel/metainfo/eln/__init__.py) populates `results.material` from
+  the `chemical_formula` quantity via `nomad.atomutils.Formula.populate` —
+  that is why the initial uploads showed the Material section and were
+  findable by element search (e.g. ZnFe2Ni9, Fe12Co4N2 -> IUPAC Fe6Co2N).
+  We therefore set `data.chemical_formula` (folder name minus `_comment`
+  suffix) when `--cif off` and NEVER write `results` directly into the
+  archive. The section also declares an `elements: str[*]` quantity filled by
+  `elements_from_formula()` from the same formula — no conflict, since the ELN
+  base only reads `chemical_formula` and `elements` is a plain data-section
+  quantity (verified: no name clash in `ElnWithFormulaBaseSection`, and
+  `ResultsNormalizer` never reads data-section quantities). Both are omitted
+  with `--cif on`. Trade-off: ELN base fields (datetime, chemical_formula,
+  ...) are editable input fields in the NOMAD 2.0 UI — accepted, matches the
+  initial datasets.
+- Thermal curves: a repeating `thermal_properties` subsection holds one entry
+  per `UppASD/MC_*/thermal.csv` (name `MC_1`…, description = csv `#` comment,
+  array quantities per csv column with ME names/units, nested
+  `mammos_entities` records from the csv header). Values are written INLINE:
+  `HDF5Normalizer`'s `create_custom_mapping` (nomad/datamodel/util.py) fills
+  only the last repeating instance (`m_get_sub_section(sub_section, -1)`), so
+  a shared hdf5 path would map all MC runs to one curve. The h5 still carries
+  the curves under `/thermal_MC_<n>/<col>` (mammos collection). Intrinsic
+  scalars stay h5-linked (`/intrinsic_properties/<name>`).
 - h5 linking: the section declares a `data_file: str` quantity set to
   `<name>.h5` — REQUIRED, because NOMAD's `HDF5Normalizer.normalize()`
   (nomad/datamodel/metainfo/basesections/v1.py) opens any *string* quantity
@@ -87,10 +116,12 @@ local) for the cif-intent discussion.
 ## cif / structure preview (optional, default OFF)
 
 - `--cif off` (default): no structure embedded in the yaml; `chemical_formula`
-  (own quantity, from the folder name) populates the Material section.
+  (ELN Chemical quantity, from the folder name) populates `results.material`
+  server-side -> Material section + element search work.
 - `--cif auto/on`: `structure.cif` parsed locally with ASE -> inline
   top-level `run` section + `metadata: {domain: dft}` (OptimadeNormalizer
-  renders the 3-D preview server-side); `chemical_formula` omitted then.
+  renders the 3-D preview server-side); `chemical_formula` omitted then
+  (server derives the material from the run section).
 - Independently of `--cif`, the `.cif` is **always** shipped in the zip when
   present: as `cif_structure_<name>.cif` at the zip root and under
   `datasets/<name>/structure.cif` (raw data / provenance). `--cif` only
@@ -106,12 +137,14 @@ local) for the cif-intent discussion.
 ## Environment / libraries
 
 pixi env `upload-uu-dft-mc`: h5py, pandas, pyyaml, ase, scipy, matplotlib,
-ipykernel (conda) + mammos-parser (pypi; brings mammos-entity/units/analysis).
+ipykernel (conda) + mammos-parser and mammos-entity (pypi; mammos-entity is
+now declared explicitly, it was previously only transitive via mammos-parser).
 All are still used: h5py/pandas/pyyaml/ase in the pipeline; scipy/matplotlib/
 ipykernel only for the old GS/Jij/MC layout and the evaluation notebook;
 mammos-parser for validation + ontology metadata. `requests`/`pint`/
-`nomad-lab` remain commented out. `mammos-entity` is used directly in code
-but declared only transitively — consider adding it explicitly.
+`nomad-lab` remain commented out. The legacy structure tests
+(`TestCheckFileAndFolderStructure`) skip automatically when the old-layout
+`datasets/` folders are not present.
 
 ## Known limitations / open items
 
@@ -127,8 +160,8 @@ but declared only transitively — consider adding it explicitly.
   project (and e.g. upload_NEEL) is planned, not implemented.
 - Old-layout (GS/Jij/MC) support kept for legacy datasets; its h5 descriptions
   are hardcoded strings.
-- TODO (from TODO_WH.md): export not only Js/Ku/Ms/Tc but the full thermal
-  curve grouped as a temperature-dependent subsection; NOMAD-side Comment
-  field and README for the new interface; "more than method: DFT" metadata.
+- TODO (from TODO_WH.md): NOMAD-side Comment field and README for the new
+  interface; "more than method: DFT" metadata. (The full thermal curve is now
+  exported as the `thermal_properties` subsection — see above.)
 - Empty placeholder files `add_group_and_dataset_to_hdf5.py` and
   `run_convert_UU_data_to_h5.py` were removed (never had content, unreferenced).

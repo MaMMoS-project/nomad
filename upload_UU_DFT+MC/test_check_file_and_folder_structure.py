@@ -1,3 +1,4 @@
+import os
 import unittest
 from packages.check_file_and_folder_structure import (
     check_readme_exists,
@@ -7,15 +8,24 @@ from packages.check_file_and_folder_structure import (
     check_structure,
 )
 
+# Legacy old-layout (GS/Jij/MC) datasets; the test passes bare folder names, so
+# it expects to run with those folders in the CWD (e.g. from ./datasets).
+LEGACY_DATASETS = [
+    "Co2Fe16Y6",
+    "Fe3-xTaxY(x=0.22)",
+    "Fe3-xVxY(x=0.22)",
+    "Fe3-xZnxY(x=0.22)",
+]
 
+
+@unittest.skipUnless(
+    all(os.path.isdir(d) for d in LEGACY_DATASETS),
+    "legacy old-layout dataset folders not present in CWD (run from ./datasets); "
+    "new uppsala-data layout is covered by TestUppsaladataStructure",
+)
 class TestCheckFileAndFolderStructure(unittest.TestCase):
     def setUp(self):
-        self.datasets = [
-            "Co2Fe16Y6",
-            "Fe3-xTaxY(x=0.22)",
-            "Fe3-xVxY(x=0.22)",
-            "Fe3-xZnxY(x=0.22)",
-        ]
+        self.datasets = LEGACY_DATASETS
 
     def test_check_readme_exists(self):
         all_results_true = []

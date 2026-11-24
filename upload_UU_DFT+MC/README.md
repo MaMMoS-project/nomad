@@ -22,6 +22,14 @@ follows the schema in `uppsala-data/dataset-schema.yaml`:
   `momfile`, `posfile`, `inpsd.dat`, `thermal.csv` (mammos csv v3 with ontology
   header; columns T, Ms, Js, E, Cv, chi, U_L), `thermal.dat`
 
+The derived files (`intrinsic_properties.yaml`, `UppASD/MC_*/thermal.csv`) in
+each dataset are **generated and validated with
+[mammos-parser](https://github.com/MaMMoS-project/mammos-parser)**
+(`mammos-parser uppsala-data generate-derived-files <dir>`), not by hand. The
+uploaded `<dataset>.h5` is a mammos-entity `EntityCollection` — the shipped
+`Evaluation_dataset_UU.ipynb` shows how to read it (`me.from_hdf5`,
+`me.from_yaml`, `me.from_csv`).
+
 Datasets in this layout are validated with
 `mammos-parser uppsala-data validate-dataset <dataset_dir>` (installed via
 pixi; see `pixi.toml`) plus an internal structural check
@@ -69,11 +77,36 @@ MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
   (folder name without `_comment` suffix) is used instead.
 - entry `name` / `short_name` are filled (`UU-DFT+MC-<dataset>` /
   `UU-<dataset>`) so they no longer show "no value" in Data -> Quantities.
-- The schema uses plain `EntryData` + `HDF5Normalizer` base sections (no ELN
-  `Chemical` base), so the new NOMAD UI shows entry fields (datetime,
-  chemical_formula, ...) read-only instead of as input fields, and
-  `chemical_formula` is declared as our own quantity (filled from the folder
-  name when `--cif off`).
+- The schema uses the ELN `Chemical` base section (as in the original/initial
+  UU template) + `EntryData` + `HDF5Normalizer`. The `Chemical` base provides
+  the `chemical_formula` quantity (filled from the folder name when
+  `--cif off`); its `normalize()` populates `results.material` server-side
+  (elements + all formula formats), which fills the Overview Material section
+  and makes element search work. We deliberately do NOT write `results`
+  directly into the `.archive.yaml`. The section additionally declares an
+  `elements` list quantity (`shape: ['*']`), filled from the same folder-name
+  formula via `elements_from_formula()` — no conflict with `chemical_formula`
+  (the ELN base only reads `chemical_formula`; `elements` is a plain
+  data-section quantity). Both are omitted when `--cif on`. Trade-off: ELN
+  base fields (datetime, chemical_formula, ...) show as editable input fields
+  in the NOMAD 2.0 UI — accepted because this matches the initial datasets.
+- The full temperature-dependent curves are exported as a repeating
+  `thermal_properties` subsection — one entry per `UppASD/MC_*/thermal.csv`
+  (mammos csv v3), named `MC_1`, `MC_2`, …, described by the csv header
+  comment ("Temperature-dependent quantities computed with UppASD"), with
+  array quantities `T, Ms, Js, E, Cv, chi, U_L` (ME names/units as-is, extra
+  csv columns are added dynamically) and a per-column `mammos_entities`
+  record (ontology label/IRI/description from the csv header). The arrays are
+  written inline — an `hdf5.path` annotation on the shared quantity
+  definition would fill only the *last* repeating instance server-side
+  (`create_custom_mapping` uses `m_get_sub_section(sub_section, -1)`), which
+  would map every MC run to the same curve; the `.h5` still carries the
+  curves under `/thermal_MC_<n>/<column>` as raw data. The intrinsic
+  properties stay grouped under the entry description ("Intrinsic magnetic
+  properties computed with RSPt and UppASD." from `intrinsic_properties.yaml`).
+- With `--cif on` (run section embedded), `chemical_formula` is omitted and
+  the composition is derived from the embedded structure server-side; keeping
+  both caused the "elements is already defined" error (see above).
 - The generated `.h5` is linked via `data_file` (a `str` quantity that MUST be
   declared in the section — NOMAD's `HDF5Normalizer` opens any string
   quantity whose value ends in `.h5` as `<upload>/raw/<value>`; without the
@@ -161,14 +194,22 @@ After processing, the created output files will be stored in the `uploads/` dire
 ```
 uploads/
 ├── Fe12Co4N2_archive.zip
+├── Fe12Co4N2_README.md      <- simple per-dataset README (also inside the zip)
 ├── Co2Fe2H4_archive.zip
-└── [dataset_name]_archive.zip
+├── Co2Fe2H4_README.md
+└── [dataset_name]_archive.zip / [dataset_name]_README.md
 ```
 
 Each zip file contains:
-- `.h5` file with processed data
+- `.h5` file with processed data (a mammos-entity `EntityCollection`)
 - `.archive.yaml` file with metadata and computed magnetic properties
-- `Evaluation_dataset_UU.ipynb` Jupyter notebook for data analysis
+- `[dataset_name]_README.md` — short README (MaMMoS project info, source, files,
+  quantities); the name is unique per dataset, so multi-zip uploads to NOMAD
+  cannot overwrite each other's README (a plain `README.md` at the zip root
+  would collide). A copy also sits next to the zip in `uploads/`
+- `Evaluation_dataset_UU.ipynb` Jupyter notebook showing how to read the data
+  with `mammos_entity`; it uses local paths only (the `.h5` / `datasets/` next
+  to the notebook), so the same notebook works in every unpacked upload
 - `datasets/[dataset_name]/` folder with original raw data
 - `packages/` folder with Python analysis tools
 
