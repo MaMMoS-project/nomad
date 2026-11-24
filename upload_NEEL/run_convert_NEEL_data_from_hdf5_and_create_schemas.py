@@ -1282,7 +1282,7 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 This archive contains the original HDF5 data files and the corresponding NOMAD schema files
 generated from EDX analysis data with atomic composition information.
 """
-            zipf.writestr("README.txt", readme_content)
+            zipf.writestr("README.md", readme_content)  # exact name: NOMAD GUI only displays raw/README.md
             files_added += 1
 
         if verbose:
