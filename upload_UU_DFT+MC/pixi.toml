@@ -7,7 +7,11 @@ version = "0.2.0"
 
 [tasks]
 
-[dependencies]
+# The default (runtime) environment. Kept in its own feature so the opt-in
+# nomad-test environment below can avoid inheriting the conda packages —
+# conda-forge pandas pins python-dateutil==4.0.0, which conflicts with
+# aiobotocore's python-dateutil>=2.1,<3.0.0 pulled in via s3fs <- nomad-lab.
+[feature.runtime.dependencies]
 python = ">=3.13.3,<3.14"
 h5py = ">=3.13.0,<4"
 pandas = ">=2.2.3,<3"
@@ -22,7 +26,7 @@ ase = ">=3.23,<4"  # parse structure.cif into the NOMAD run section (structure p
 #requests = ">=2.32.3,<3"
 #pint = ">=0.24.4,<0.25"
 
-[pypi-dependencies]
+[feature.runtime.pypi-dependencies]
 # validator/generator for the uppsala-data dataset structure (https://github.com/MaMMoS-project/uppsala-data)
 mammos-parser = ">=0.1.0"
 # mammos-entity data model (Entity/EntityCollection: from_yaml/from_csv/to_hdf5, ontology
@@ -30,3 +34,28 @@ mammos-parser = ">=0.1.0"
 # transitive dependency via mammos-parser
 mammos-entity = ">=0.14.0,<0.15"
 #nomad-lab = ">=0.10.4, <0.11"
+
+# Opt-in environment for LOCAL archive validation (no network, no credentials):
+# scripts/validate_archive_locally.py runs the real NOMAD parser + normalizer chain
+# on a generated .archive.yaml + .h5. Created on first use: pixi install -e nomad-test
+[feature.nomad-test.dependencies]
+python = ">=3.13.3,<3.14"
+
+[feature.nomad-test.pypi-dependencies]
+# pin to the version the central instance runs (GET https://nomad-lab.eu/prod/v1/api/v1/info
+# -> 2.0.1, checked 2026-11). 2.0.x base install misses zipstream/fastapi (added below);
+# nomad-schema-plugin-run provides the RunSchema entry point needed for run-section
+# (--cif on) archives.
+nomad-lab = ">=2.0.1,<2.1"
+zipstream-ng = "*"
+fastapi = "*"
+nomad-schema-plugin-run = "*"
+pyyaml = ">=6.0.2,<7"  # validate_archive_locally.py imports yaml
+
+[feature.nomad-test.tasks]
+validate = "python scripts/validate_archive_locally.py"
+parse = "nomad parse --parser parsers/archive --show-archive"
+
+[environments]
+default = ["runtime"]
+nomad-test = ["nomad-test"]

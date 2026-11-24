@@ -26,13 +26,19 @@ definitions:
           type: str
         owner:
           type: str
-        # List of elements, filled from the dataset folder-name formula
-        # (same source as the ELN Chemical chemical_formula). Independent
-        # data-section quantity — no server-side conflict with chemical_formula.
+        # Elements of the dataset as a comma-separated STRING, filled from the
+        # dataset folder-name formula (same source as the ELN Chemical
+        # chemical_formula). Must NOT be a list (shape: ['*']): nomad-lab
+        # 2.0.1 HDF5Normalizer.normalize() runs re.match(h5_re, value) on EVERY
+        # str-typed quantity of this section — a list value raises
+        # "TypeError: expected string or bytes-like object, got 'list'" and
+        # aborts the whole section normalize (no hdf5 fill, and the Chemical
+        # formula -> results.material population never runs).
+        # Independent data-section quantity — no server-side conflict with
+        # chemical_formula (the ELN base only reads chemical_formula).
         elements:
           type: str
-          shape: ['*']
-          description: "Chemical elements of the dataset (from the folder-name formula; omitted when the cif run-section is embedded)"
+          description: "Chemical elements of the dataset, comma-separated (from the folder-name formula; omitted when the cif run-section is embedded)"
         data_file:
           type: str
           description: "Name of the uploaded .h5 file in the same upload (raw/); the HDF5Normalizer base section opens it and fills quantities annotated with m_annotations.hdf5.path"

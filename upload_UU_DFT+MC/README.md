@@ -84,10 +84,17 @@ MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
   (elements + all formula formats), which fills the Overview Material section
   and makes element search work. We deliberately do NOT write `results`
   directly into the `.archive.yaml`. The section additionally declares an
-  `elements` list quantity (`shape: ['*']`), filled from the same folder-name
-  formula via `elements_from_formula()` — no conflict with `chemical_formula`
-  (the ELN base only reads `chemical_formula`; `elements` is a plain
-  data-section quantity). Both are omitted when `--cif on`. Trade-off: ELN
+  `elements` **string** quantity (comma-separated, e.g. `Al, C, Fe`), filled
+  from the same folder-name formula via `elements_from_formula()` — no
+  conflict with `chemical_formula` (the ELN base only reads
+  `chemical_formula`; `elements` is a plain data-section quantity). It must
+  NOT be a list (`shape: ['*']`): nomad-lab 2.0.1 `HDF5Normalizer.normalize()`
+  runs `re.match(h5_re, value)` on *every* str-typed quantity of the section
+  and crashes on a list value (`TypeError: expected string or bytes-like
+  object, got 'list'`), which aborts the whole section normalize — no h5
+  fill, and the `chemical_formula` → `results.material` population never
+  runs (found by local validation on 2.0.1, would also fail server-side).
+  Both `elements` and `chemical_formula` are omitted when `--cif on`. Trade-off: ELN
   base fields (datetime, chemical_formula, ...) show as editable input fields
   in the NOMAD 2.0 UI — accepted because this matches the initial datasets.
 - The full temperature-dependent curves are exported as a repeating
@@ -191,6 +198,41 @@ Notes:
 - The batch script runs each dataset with the default `--cif off` (it does not forward a `--cif` flag); run the single-dataset command with `--cif auto|on` for datasets that need the embedded structure preview.
 - Equivalent manual alternative (shell loop):
   `for d in uppsala-data/data/*/; do python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir "$(basename "$d")"; done`
+
+### Local validation (optional, Level 1)
+
+Each generated `.archive.yaml` + `.h5` pair can be validated **locally** with
+the real NOMAD parser + normalizer chain (no network, no credentials) before
+uploading:
+
+```bash
+# one-time: create the opt-in nomad-test environment (nomad-lab pinned to the
+# central instance version, currently 2.0.1)
+pixi install -e nomad-test
+
+# validate while processing ONE dataset (stages a temp dir with just this
+# dataset's .archive.yaml + .h5 [+ cif], exits non-zero on failure,
+# writes <dataset>.validated.json next to the archive):
+python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --validate
+
+# or validate an existing archive directly (data file must sit next to it):
+pixi run -e nomad-test validate uppsala-data/data/Fe12Co4N2.archive.yaml
+```
+
+`scripts/validate_archive_locally.py` stages the archive's parent directory
+as a NOMAD staging upload, runs `parsers/archive` + all normalizers of the
+pinned nomad-lab, and fails if any `hdf5`-annotated quantity is unfilled, any
+figure trace is empty, or (UU-specific, `--cif off` archives) the ELN
+`chemical_formula` did not populate `results.material.elements`. The full
+normalized archive is dumped as JSON for inspection.
+
+Caveat: local OK means "identical parse/normalize result expected on the
+server" — it does NOT cover server-only steps (msgpack `write_archive`,
+Mongo/Elasticsearch indexing, the server-only `SystemNormalizer`, GUI
+rendering). The final check remains the server-side `process_status` after
+upload. The nomad-test env deliberately does NOT inherit the runtime conda
+deps (conda-forge `pandas` pins `python-dateutil==4.0.0`, conflicting with
+nomad-lab's `s3fs`/`aiobotocore` requirement `python-dateutil<3`).
 
 ## Output Files
 

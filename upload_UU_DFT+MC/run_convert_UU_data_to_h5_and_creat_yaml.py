@@ -68,6 +68,15 @@ def main():
         "'off' (default) = never embed it, chemical_formula from the folder name is used; "
         "'auto' = embed if structure.cif exists; 'on' = require it",
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="After generating .h5 + .archive.yaml, validate them locally with the real "
+        "NOMAD parser + normalizer chain (scripts/validate_archive_locally.py in the "
+        "opt-in 'nomad-test' pixi env — first run: pixi install -e nomad-test). "
+        "Stages a temp dir with just this dataset's .archive.yaml + .h5 (+ cif) so only "
+        "this dataset is validated. Exits non-zero if validation fails.",
+    )
     args = parser.parse_args()
     subfolder = args.source_dir
     datasets_dir = resolve_datasets_dir(args.datasets_dir)
@@ -194,10 +203,15 @@ def main():
                 f"Warning: folder name '{subfolder}' -> formula '{formula}' does not "
                 "look like a plain chemical formula; NOMAD may not parse it."
             )
-        # List of elements alongside chemical_formula (both from the folder
-        # name; no conflict — the ELN Chemical base only reads chemical_formula)
+        # Elements alongside chemical_formula (both from the folder name; no
+        # conflict — the ELN Chemical base only reads chemical_formula).
+        # Written as a comma-separated STRING, not a list: nomad-lab 2.0.1
+        # HDF5Normalizer.normalize() applies re.match to every str-typed
+        # quantity value of this section and crashes on list values
+        # ("expected string or bytes-like object, got 'list'"), which aborts
+        # the whole section normalize (hdf5 fill + formula->material).
         try:
-            data["elements"] = nae.elements_from_formula(formula)
+            data["elements"] = ", ".join(nae.elements_from_formula(formula))
         except ValueError as e:
             print(f"Warning: could not derive elements from '{formula}': {e}")
     data["name"] = f"UU-DFT+MC-{subfolder}"
@@ -323,6 +337,40 @@ def main():
         f"Js: {rnd(js)} T, Js_300: {rnd(js_300)} T, Ku: {rnd(ku)} MJ/m^3, "
         f"Tc: {rnd(tc)} K, Ms: {rnd(ms)} kA/m"
     )
+
+    if args.validate:
+        # Level-1 local validation with the REAL NOMAD parser + normalizer
+        # chain (scripts/validate_archive_locally.py, opt-in nomad-test env).
+        # Stage a temp dir with ONLY this dataset's files — the archive's
+        # parent dir (uppsala-data/data) holds all 23 datasets and would be
+        # staged wholesale otherwise.
+        import shutil
+        import tempfile
+
+        nomad_test_python = os.path.join(
+            SCRIPT_DIR, ".pixi", "envs", "nomad-test", "bin", "python"
+        )
+        if not os.path.exists(nomad_test_python):
+            print(
+                "Error: --validate needs the opt-in nomad-test pixi env. "
+                "Run once: pixi install -e nomad-test"
+            )
+            sys.exit(2)
+        with tempfile.TemporaryDirectory() as stage:
+            staged_yaml = os.path.join(stage, os.path.basename(yaml_file))
+            shutil.copy(yaml_file, staged_yaml)
+            shutil.copy(h5_file, os.path.join(stage, os.path.basename(h5_file)))
+            if use_cif and os.path.isfile(cif_path):
+                shutil.copy(cif_path, os.path.join(stage, os.path.basename(cif_path)))
+            validator = os.path.join(SCRIPT_DIR, "scripts", "validate_archive_locally.py")
+            json_out = os.path.join(datasets_dir, f"{subfolder}.validated.json")
+            cmd = [nomad_test_python, validator, staged_yaml, "--json", json_out]
+            print(f"Local validation: {' '.join(cmd)}")
+            result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"Local validation FAILED for {subfolder} (normalized archive: {json_out})")
+            sys.exit(1)
+        print(f"Local validation OK for {subfolder} (normalized archive: {json_out})")
 
     # Create a .zip containing the .h5, .yaml files, all content of source_dir in a 'datasets' subfolder, and the packages folder
     with zipfile.ZipFile(zip_filename, "w") as zipf:

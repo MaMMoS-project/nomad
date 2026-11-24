@@ -72,12 +72,20 @@ local) for the cif-intent discussion.
   findable by element search (e.g. ZnFe2Ni9, Fe12Co4N2 -> IUPAC Fe6Co2N).
   We therefore set `data.chemical_formula` (folder name minus `_comment`
   suffix) when `--cif off` and NEVER write `results` directly into the
-  archive. The section also declares an `elements: str[*]` quantity filled by
+  archive. The section also declares an `elements: str` quantity (a
+  comma-separated STRING, e.g. `Al, C, Fe`) filled by
   `elements_from_formula()` from the same formula — no conflict, since the ELN
   base only reads `chemical_formula` and `elements` is a plain data-section
   quantity (verified: no name clash in `ElnWithFormulaBaseSection`, and
-  `ResultsNormalizer` never reads data-section quantities). Both are omitted
-  with `--cif on`. Trade-off: ELN base fields (datetime, chemical_formula,
+  `ResultsNormalizer` never reads data-section quantities). It must NOT be a
+  list (`str[*]`): nomad-lab 2.0.1 `HDF5Normalizer.normalize()`
+  (basesections/v1.py) applies `re.match(h5_re, value)` to every str-typed
+  quantity value of the section and raises `TypeError: expected string or
+  bytes-like object, got 'list'` on a list — aborting the whole section
+  normalize, so no hdf5 quantity is filled AND the `chemical_formula` →
+  `results.material` population never runs (found via local validation on
+  2.0.1; would fail identically server-side). Both are omitted with
+  `--cif on`. Trade-off: ELN base fields (datetime, chemical_formula,
   ...) are editable input fields in the NOMAD 2.0 UI — accepted, matches the
   initial datasets.
 - Thermal curves: a repeating `thermal_properties` subsection holds one entry
@@ -158,10 +166,21 @@ mammos-parser for validation + ontology metadata. `requests`/`pint`/
   first (cf. `Nomad_cif demo_xVP6STRzQ-aYY1sSr-2cLg`). Until then the default
   is `--cif off` (formula from folder name; cif still shipped in the zip as
   raw data). Re-test the preview after the NOMAD-side fix.
-- Automatic testing: see `validation_overview.md` (untracked, local) for the
-  two-level validation model (local `validate_archive_locally.py` with pinned
-  nomad-lab, server-side processing on upload); transferring it to this
-  project (and e.g. upload_NEEL) is planned, not implemented.
+- Local validation (Level 1) is implemented: `scripts/validate_archive_locally.py`
+  (from MaMMoS-project/to-nomad) runs the real parser + normalizer chain of
+  the pinned nomad-lab in the opt-in `nomad-test` pixi env (nomad-lab pinned
+  to the central instance version, currently 2.0.1, plus zipstream-ng,
+  fastapi, nomad-schema-plugin-run, pyyaml; the env does not inherit the
+  runtime conda deps because conda-forge pandas pins python-dateutil==4.0.0,
+  conflicting with nomad-lab's s3fs/aiobotocore). Use
+  `run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir <name> --validate`
+  (validates only that one dataset, writes `<name>.validated.json`) or
+  `pixi run -e nomad-test validate <archive.yaml>`. It checks hdf5-annotated
+  quantities are filled, figure traces non-empty, and (UU-specific) that
+  `chemical_formula` populated `results.material.elements`. Local OK does not
+  cover server-only steps (msgpack write_archive, Mongo/ES indexing,
+  SystemNormalizer, GUI) — see `validation_overview.md` (untracked, local)
+  for the two-level model; server-side check remains the final gate.
 - Old-layout (GS/Jij/MC) support kept for legacy datasets; its h5 descriptions
   are hardcoded strings.
 - TODO (from TODO_WH.md): NOMAD-side Comment field and README for the new
