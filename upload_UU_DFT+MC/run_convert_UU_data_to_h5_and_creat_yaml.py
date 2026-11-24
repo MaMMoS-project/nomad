@@ -324,20 +324,6 @@ def main():
         f"Tc: {rnd(tc)} K, Ms: {rnd(ms)} kA/m"
     )
 
-    # Simple per-dataset README: written next to the zip in uploads/ and into
-    # the zip root as '<name>_README.md'. The name is unique per dataset — a
-    # plain 'README.md' at the zip root would be silently overwritten when
-    # several zips are uploaded to NOMAD in one upload.
-    readme_name = f"{subfolder}_README.md"
-    readme_text = nae.dataset_readme(
-        subfolder,
-        {"Js": rnd(js), "Js_300": rnd(js_300), "Ku": rnd(ku), "Tc": rnd(tc), "Ms": rnd(ms)},
-    )
-    readme_path = os.path.join(uploads_dir, readme_name)
-    with open(readme_path, "w") as f:
-        f.write(readme_text)
-    print(f"Created {readme_path}")
-
     # Create a .zip containing the .h5, .yaml files, all content of source_dir in a 'datasets' subfolder, and the packages folder
     with zipfile.ZipFile(zip_filename, "w") as zipf:
         # Add .h5 and .yaml files to the root of the zip
@@ -351,8 +337,16 @@ def main():
         if os.path.exists(notebook_file):
             zipf.write(notebook_file, arcname=os.path.basename(notebook_file))
 
-        # Add the per-dataset README to the root of the zip (unique name)
-        zipf.write(readme_path, arcname=readme_name)
+        # Add the general README.md at the zip root (exact name — this is what
+        # the NOMAD GUI shows in the upload overview; UploadOverview.js fetches
+        # exactly raw/README.md). It is dataset-agnostic and byte-identical in
+        # every zip, so even a multi-zip upload (same-name raw files are
+        # silently overwritten server-side) is harmless. The dataset-specific
+        # names/values live in the entry's Data tab and in <name>.h5 /
+        # <name>.archive.yaml / datasets/<name>/ in this zip.
+        general_readme = os.path.join(SCRIPT_DIR, "README_upload.md")
+        if os.path.exists(general_readme):
+            zipf.write(general_readme, arcname="README.md")
 
         # Add the crystal structure file to the root of the zip as raw data.
         # This is independent of --cif: the .cif is ALWAYS shipped in the zip

@@ -12,6 +12,11 @@ from typing import List
 
 from run_convert_UU_data_to_h5_and_creat_yaml import resolve_datasets_dir
 
+# Small default set for quick test rebuilds (--quick): covers a plain folder
+# name, a '_suffix' name and a multi-MC dataset. Run ALL datasets with no
+# flag (or an explicit --only list) when preparing real uploads.
+QUICK_DATASETS = ["Al2Fe6C", "Fe16N2_exp_str", "Co3Mn2Ge"]
+
 
 def main():
     """
@@ -31,9 +36,21 @@ def main():
       process all subfolders of an explicit datasets directory
   %(prog)s --only Fe12Co4N2,Co2Fe2H4
       process only the listed datasets (comma-separated)
+  %(prog)s --quick
+      quick test rebuild: only the small QUICK_DATASETS set (currently
+      Al2Fe6C, Fe16N2_exp_str, Co3Mn2Ge — plain name, '_suffix' name,
+      multi-MC), skipping the slow per-dataset mammos-parser validation of
+      all 23 datasets. Run without flags to rebuild ALL datasets.
 Note: each dataset is processed with the runner's defaults (--cif off).
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Quick test rebuild: process only the small QUICK_DATASETS set "
+        f"({', '.join(QUICK_DATASETS)}) instead of all subfolders; "
+        "--only overrides this when both are given",
     )
     parser.add_argument(
         "--datasets_dir",
@@ -65,6 +82,12 @@ Note: each dataset is processed with the runner's defaults (--cif off).
     if args.only:
         only = {name.strip() for name in args.only.split(",") if name.strip()}
         datasets_to_process = [d for d in datasets_to_process if d in only]
+    elif args.quick:
+        quick = [d for d in QUICK_DATASETS if d in datasets_to_process]
+        missing = [d for d in QUICK_DATASETS if d not in datasets_to_process]
+        if missing:
+            print(f"Warning: QUICK_DATASETS not present in {datasets_dir}: {missing}")
+        datasets_to_process = quick
 
     # Check if the conversion script exists
     if not os.path.exists(conversion_script):

@@ -180,6 +180,11 @@ python batch_process_datasets.py --datasets_dir ./uppsala-data/data
 
 # Process only selected datasets (comma-separated names)
 python batch_process_datasets.py --only Fe12Co4N2,Co2Fe2H4
+
+# QUICK TEST rebuild: only ~3 datasets (QUICK_DATASETS in the script:
+# Al2Fe6C, Fe16N2_exp_str, Co3Mn2Ge — plain name, '_suffix' name, multi-MC),
+# ~40 s instead of several minutes for all 23. Run without flags to rebuild ALL.
+python batch_process_datasets.py --quick
 ```
 
 Notes:
@@ -194,19 +199,18 @@ After processing, the created output files will be stored in the `uploads/` dire
 ```
 uploads/
 ├── Fe12Co4N2_archive.zip
-├── Fe12Co4N2_README.md      <- simple per-dataset README (also inside the zip)
 ├── Co2Fe2H4_archive.zip
-├── Co2Fe2H4_README.md
-└── [dataset_name]_archive.zip / [dataset_name]_README.md
+└── [dataset_name]_archive.zip
 ```
 
 Each zip file contains:
 - `.h5` file with processed data (a mammos-entity `EntityCollection`)
 - `.archive.yaml` file with metadata and computed magnetic properties
-- `[dataset_name]_README.md` — short README (MaMMoS project info, source, files,
-  quantities); the name is unique per dataset, so multi-zip uploads to NOMAD
-  cannot overwrite each other's README (a plain `README.md` at the zip root
-  would collide). A copy also sits next to the zip in `uploads/`
+- `README.md` — general upload README (no dataset-specific names/values; points
+  to the entry's Overview/Data tabs and the raw files, where they are found).
+  The NOMAD GUI shows exactly this file in the upload overview (it fetches
+  `raw/README.md`); it is byte-identical in every zip, so multi-zip uploads
+  are safe
 - `Evaluation_dataset_UU.ipynb` Jupyter notebook showing how to read the data
   with `mammos_entity`; it uses local paths only (the `.h5` / `datasets/` next
   to the notebook), so the same notebook works in every unpacked upload

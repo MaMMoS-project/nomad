@@ -50,12 +50,16 @@ local) for the cif-intent discussion.
   ontology_iri, unit, description. Quantity and entry descriptions are filled
   at runtime from the ME yaml / ontology, not hardcoded.
 - Entry `name` = `UU-DFT+MC-<folder>`, `short_name` = `UU-<folder>`.
-- Per-dataset README: `dataset_readme()` (`packages/nomad_archive_extras.py`)
-  renders a short `README.md` (MaMMoS project/acknowledgement, uppsala-data
-  source, zip contents, intrinsic quantities) — written next to the zip as
-  `uploads/<name>_README.md` and into the zip root as `<name>_README.md`
-  (unique per dataset; a plain `README.md` at the root would be silently
-  overwritten when several zips land in one NOMAD upload).
+- README: `README_upload.md` (project folder) is shipped at the zip root as
+  exactly `README.md` — the NOMAD 2.0 GUI shows the upload's `raw/README.md`
+  in the upload overview (UploadOverview.js fetches exactly that path;
+  extended names are NOT picked up). It is general (no dataset names/values)
+  and points to where they live: the entry Overview (Material section) and
+  Data tab (quantities, thermal_properties, mammos_entities) plus the raw
+  files `<name>.archive.yaml` / `<name>.h5` / `datasets/<name>/`. It is
+  byte-identical in all zips, so multi-zip uploads (same-name raw files are
+  silently overwritten server-side) are harmless. There is only this one
+  README per upload — no per-dataset `<name>_README.md` anymore.
 - Schema base sections: `nomad.datamodel.metainfo.eln.Chemical` (as in the
   original/initial UU template) + `nomad.datamodel.data.EntryData` +
   `nomad.datamodel.metainfo.basesections.HDF5Normalizer`.

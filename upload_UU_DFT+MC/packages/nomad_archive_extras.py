@@ -173,59 +173,6 @@ def elements_from_formula(formula):
     return sorted(count)
 
 
-def dataset_readme(name, values=None):
-    """Simple per-dataset README.md text for the upload (zip root entry
-    '<name>_README.md' and a copy next to the zip in uploads/).
-
-    `values` may hold the computed quantities (Js, Js_300, Ku, Tc, Ms) for the
-    summary line. The name is unique per dataset, so multi-zip uploads to
-    NOMAD never collide on this file (unlike a plain 'README.md' at the zip
-    root, which NOMAD would silently overwrite across zips).
-    """
-    formula = chemical_formula_from_name(name)
-    values = values or {}
-
-    def fmt(key, unit):
-        v = values.get(key)
-        return f"{v} {unit}" if v is not None else "n/a"
-
-    summary = (
-        f"- Js = {fmt('Js', 'T')}, Js(300 K) = {fmt('Js_300', 'T')}\n"
-        f"- Ms = {fmt('Ms', 'kA/m')}, Ku = {fmt('Ku', 'MJ/m^3')}, Tc = {fmt('Tc', 'K')}\n"
-    )
-    return f"""# {name} — UU DFT+MC dataset ({formula})
-
-Atomistic spin-dynamics data (RSPt DFT + UppASD Monte Carlo) for **{formula}**,
-computed at Uppsala University, Department of Physics and Astronomy; Materials
-Theory, within the EU Horizon Europe project **MaMMoS**
-(grant agreement No 101135546, https://mammos-project.github.io/).
-
-## Source
-
-- Raw and derived data: https://github.com/MaMMoS-project/uppsala-data/tree/main/data/{name}
-- The derived files (`intrinsic_properties.yaml`, `UppASD/MC_*/thermal.csv`)
-  are generated and validated with
-  [mammos-parser](https://github.com/MaMMoS-project/mammos-parser); this upload
-  was built with the `upload_UU_DFT+MC` scripts (see `packages/` in the zip).
-
-## Files in this upload
-
-- `{name}.h5` — mammos-entity `EntityCollection` (sub-collections
-  `intrinsic_properties`, `thermal_MC_<n>`, `raw_data`); read it with
-  `import mammos_entity as me; me.from_hdf5('{name}.h5')`
-- `{name}.archive.yaml` — the NOMAD entry; scalar quantities (Js, Ku, Tc, Ms)
-  are linked to the h5, temperature-dependent curves are in the repeating
-  `thermal_properties` subsection; ontology labels/IRIs in `mammos_entities`
-- `cif_structure_{name}.cif` and `datasets/{name}/` — crystal structure and full raw data tree
-- `Evaluation_dataset_UU.ipynb` — how to read and analyse the data
-- `{name}_README.md` — this file
-
-## Intrinsic quantities (with EMMO ontology metadata)
-
-{summary}
-"""
-
-
 def mammos_yaml_description(file_path):
     """Top-level 'description' of a mammos yaml v2 file (e.g.
     intrinsic_properties.yaml), or None if empty/absent."""
