@@ -17,3 +17,9 @@ upload_NEEL/datasets/*.csv
 AGENTS.md
 AI_*.md
 TODO*.md
+
+# local research docs (never tracked, never uploaded)
+upload_UU_DFT+MC/local_docs/
+
+# local-only tool copies (never tracked, never pushed to github)
+upload_UU_DFT+MC/local_tools/

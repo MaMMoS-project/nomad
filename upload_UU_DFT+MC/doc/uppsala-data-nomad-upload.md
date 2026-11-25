@@ -158,6 +158,57 @@ mammos-parser for validation + ontology metadata. `requests`/`pint`/
 (`TestCheckFileAndFolderStructure`) skip automatically when the old-layout
 `datasets/` folders are not present.
 
+## Uploading to NOMAD via the API — which base URL to use (verified 2026-11-25)
+
+Central NOMAD (2.0.1) exposes two ingress paths with **different body limits**:
+
+| Base URL | Reads (GET) | Uploads (PUT raw) |
+|---|---|---|
+| `https://nomad-lab.eu/prod/v1/api/v1` (public edge) | fine | **capped ~1 MB** — 413 `nginx/1.31.1` above ~(850–900) KB body / 1,048,576 B Content-Length |
+| `https://nomad-lab.eu/backend/api/v1` (backend ingress, suggested by the NOMAD team) | fine | **works** — NOMAD's own nginx applies the documented upload location (`client_max_body_size 35g; proxy_request_buffering off`); verified: 1 MB PUT → 200, file landed in raw/, declared Content-Length up to 1 GB accepted |
+
+So: **always upload via `https://nomad-lab.eu/backend/api/v1`**; the public
+`/prod/...` edge is only for read-only queries. Caveats on the backend path:
+slow transfers can fail with **504 Gateway Time-out** (nginx→app proxy
+timeout; known OASIS issue) — simply retry, the PUT is idempotent
+(`overwrite_if_exists=true` default). Rate limiting (429) applies if you
+hammer the endpoint.
+
+Minimal upload with the nomad-lab package installed in the `nomad-test` env
+(no extra tool needed):
+
+```bash
+cd upload_UU_DFT+MC
+NOMAD_CLIENT_URL="https://nomad-lab.eu/backend/api" \
+NOMAD_CLIENT_ACCESS_TOKEN="$(cat ~/.config/to-nomad/token)" \
+./.pixi/envs/nomad-test/bin/python -c "
+from nomad.client import api
+files = [('file', open(p, 'rb')) for p in ['<name>.archive.yaml', '<name>.h5', 'README.md']]
+r = api.put('uploads/<PROJECT_ID>/raw/', files=files, auth=api.Auth())
+print(r.status_code, r.text[:200])
+"
+# wait for processing / check status (reads work on either URL):
+#   api.get('uploads/<PROJECT_ID>/entries', auth=api.Auth())
+#   or PUT with params={'wait_for_processing': True}
+```
+
+Route details worth knowing: multipart field name is `file` (repeatable);
+`PUT /uploads/{id}/raw/{path}` for a single file; `auto_decompress=true`
+default (zip/tar are extracted+merged); every PUT triggers ONE processing run
+and blocks concurrent ones (wait for `process_running == false`); no HEAD on
+raw routes (use GET); `rawdir/?page_size=100` lists raw/ (default page is 10);
+`DELETE /uploads/{id}/raw/{name}` removes a file; processed entry archives are
+at `GET /uploads/{id}/archive/{entry_id}` (nested under `response.data.archive`).
+Auth: PAT with exactly `uploads:read` + `uploads:write`, from env
+`NOMAD_CLIENT_ACCESS_TOKEN` or a `chmod 600` file outside all repos
+(`~/.config/to-nomad/token`) — never in repo files, chat, logs or CLI values.
+Rules (AGENTS.md): any upload needs an explicit user request naming the files
+and project id plus `[Approved]` in the same message; dry-runs/GETs/local
+validation are always allowed. Full research log (413 probes, two-layer cap
+analysis, Discord outcome): `local_docs/upload_size_limit_413.md`,
+`local_docs/upload_routes_and_processing.md`, `AI_nomad_upload_research_20261125.md`
+(all local-only, untracked).
+
 ## Known limitations / open items
 
 - **3-D cif preview deferred (TODO)**: `--cif auto/on` embedding works, but

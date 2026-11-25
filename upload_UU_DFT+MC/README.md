@@ -234,6 +234,33 @@ upload. The nomad-test env deliberately does NOT inherit the runtime conda
 deps (conda-forge `pandas` pins `python-dateutil==4.0.0`, conflicting with
 nomad-lab's `s3fs`/`aiobotocore` requirement `python-dateutil<3`).
 
+### Uploading to NOMAD via the API (Level 2)
+
+Upload the zips' content into an existing NOMAD project via the REST API.
+**Use the backend ingress for uploads**:
+`https://nomad-lab.eu/backend/api/v1` — the public edge
+`https://nomad-lab.eu/prod/v1/api/v1` caps request bodies at ~1 MB (HTTP 413
+above that, verified 2026-11-25), while the backend applies NOMAD's documented
+35 GB upload limit. Minimal example using the nomad-lab package from the
+`nomad-test` env (token only from env `NOMAD_CLIENT_ACCESS_TOKEN` or
+`~/.config/to-nomad/token`, never in repo files/chat/CLI):
+
+```bash
+NOMAD_CLIENT_URL="https://nomad-lab.eu/backend/api" \
+NOMAD_CLIENT_ACCESS_TOKEN="$(cat ~/.config/to-nomad/token)" \
+./.pixi/envs/nomad-test/bin/python -c "
+from nomad.client import api
+files = [('file', open(p, 'rb')) for p in ['<name>.archive.yaml', '<name>.h5', 'README.md']]
+print(api.put('uploads/<PROJECT_ID>/raw/', files=files, auth=api.Auth()).status_code)
+"
+```
+
+See [doc/uppsala-data-nomad-upload.md](doc/uppsala-data-nomad-upload.md) section
+"Uploading to NOMAD via the API" for the full route/parameter reference
+(`wait_for_processing`, processing polling, rawdir pagination, 504-on-slow-link
+caveat). Any real upload requires an explicit user request naming files +
+project id with `[Approved]` in the same message (AGENTS.md).
+
 ## Output Files
 
 After processing, the created output files will be stored in the `uploads/` directory as `.zip` files ready for uploading to NOMAD:
