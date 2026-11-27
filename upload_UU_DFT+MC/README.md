@@ -66,7 +66,7 @@ MaMMoS-project/to-nomad (branch `feature/subcollection-subsections`):
   embedded as an inline top-level `run` section (plus
   `metadata: {domain: dft}`), so NOMAD shows a 3-D structure preview in the
   entry overview; the `.cif` itself is also copied to the zip root as
-  `cif_structure_<dataset>.cif` (raw data / provenance — NOMAD never reads
+  `<dataset>_structure.cif` (raw data / provenance — NOMAD never reads
   the cif at upload time). When the run section is embedded,
   `chemical_formula` is **omitted** from the archive: keeping both makes the
   `Chemical` base section derive `elements` from the formula, which collides
@@ -169,7 +169,7 @@ script below.
 # Note: with the run section embedded, chemical_formula must be omitted
 # (server-side collision). Independently of --cif, the .cif is ALWAYS
 # included in the upload zip as raw data when present
-# (cif_structure_<dataset>.cif at the zip root and under datasets/<dataset>/).
+# (<dataset>_structure.cif at the zip root and under raw_datasets/<dataset>/).
 python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir Fe12Co4N2 --cif auto
 ```
 
@@ -195,6 +195,7 @@ python batch_process_datasets.py --quick
 ```
 
 Notes:
+- **Always regenerate ALL datasets before an upload** (`python batch_process_datasets.py` without flags). Zips already present in `uppsala-data/uploads/` can be stale — produced with an older archive template (e.g. `elements` as a list, which crashes the 2.0.1 `HDF5Normalizer`) or an older zip layout (cif named `cif_structure_<name>.cif`, raw tree under `datasets/` instead of `<name>_structure.cif` / `raw_datasets/`).
 - The batch script runs each dataset with the default `--cif off` (it does not forward a `--cif` flag); run the single-dataset command with `--cif auto|on` for datasets that need the embedded structure preview.
 - Equivalent manual alternative (shell loop):
   `for d in uppsala-data/data/*/; do python run_convert_UU_data_to_h5_and_creat_yaml.py --source_dir "$(basename "$d")"; done`
@@ -281,9 +282,9 @@ Each zip file contains:
   `raw/README.md`); it is byte-identical in every zip, so multi-zip uploads
   are safe
 - `Evaluation_dataset_UU.ipynb` Jupyter notebook showing how to read the data
-  with `mammos_entity`; it uses local paths only (the `.h5` / `datasets/` next
+  with `mammos_entity`; it uses local paths only (the `.h5` / `raw_datasets/` next
   to the notebook), so the same notebook works in every unpacked upload
-- `datasets/[dataset_name]/` folder with original raw data
+- `raw_datasets/[dataset_name]/` folder with original raw data
 - `packages/` folder with Python analysis tools
 
 These zip files are self-contained and ready for upload to the NOMAD repository.

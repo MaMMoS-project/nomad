@@ -56,7 +56,7 @@ local) for the cif-intent discussion.
   extended names are NOT picked up). It is general (no dataset names/values)
   and points to where they live: the entry Overview (Material section) and
   Data tab (quantities, thermal_properties, mammos_entities) plus the raw
-  files `<name>.archive.yaml` / `<name>.h5` / `datasets/<name>/`. It is
+  files `<name>.archive.yaml` / `<name>.h5` / `raw_datasets/<name>/`. It is
   byte-identical in all zips, so multi-zip uploads (same-name raw files are
   silently overwritten server-side) are harmless. There is only this one
   README per upload — no per-dataset `<name>_README.md` anymore.
@@ -135,8 +135,8 @@ local) for the cif-intent discussion.
   renders the 3-D preview server-side); `chemical_formula` omitted then
   (server derives the material from the run section).
 - Independently of `--cif`, the `.cif` is **always** shipped in the zip when
-  present: as `cif_structure_<name>.cif` at the zip root and under
-  `datasets/<name>/structure.cif` (raw data / provenance). `--cif` only
+  present: as `<name>_structure.cif` at the zip root and under
+  `raw_datasets/<name>/structure.cif` (raw data / provenance). `--cif` only
   changes the `.archive.yaml`. With the run section embedded,
   `chemical_formula` MUST be omitted — otherwise the server-side
   ResultsNormalizer fails with "Could not populate compositional data as
@@ -156,7 +156,7 @@ ipykernel only for the old GS/Jij/MC layout and the evaluation notebook;
 mammos-parser for validation + ontology metadata. `requests`/`pint`/
 `nomad-lab` remain commented out. The legacy structure tests
 (`TestCheckFileAndFolderStructure`) skip automatically when the old-layout
-`datasets/` folders are not present.
+`raw_datasets/` folders are not present.
 
 ## Uploading to NOMAD via the API — which base URL to use (verified 2026-11-25)
 

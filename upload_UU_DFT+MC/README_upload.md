@@ -33,7 +33,7 @@ composition and values of **this** entry are in:
   `import mammos_entity as me; me.from_hdf5('<dataset>.h5')`
 - `<dataset>.archive.yaml` — the NOMAD entry for this dataset
 - `README.md` — this file (general, identical for all UU uploads)
-- `cif_structure_<dataset>.cif` and `datasets/<dataset>/` — crystal structure
+- `<dataset>_structure.cif` and `raw_datasets/<dataset>/` — crystal structure
   and the full raw data tree
 - `Evaluation_dataset_UU.ipynb` — notebook showing how to read and analyse the
   data with `mammos_entity` (works with the local files of the unpacked upload)

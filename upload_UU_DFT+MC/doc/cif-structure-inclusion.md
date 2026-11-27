@@ -16,8 +16,8 @@ as raw data (provenance + download).
 
 In `run_convert_UU_data_to_h5_and_creat_yaml.py` + `packages/nomad_archive_extras.py`:
 
-1. `structure.cif` is copied to the **zip root** as `cif_structure_<dataset>.cif`
-   (raw data), in addition to staying under `datasets/<dataset>/structure.cif`.
+1. `structure.cif` is copied to the **zip root** as `<dataset>_structure.cif`
+   (raw data), in addition to staying under `raw_datasets/<dataset>/structure.cif`.
    This happens **independently of `--cif`** — the file is always shipped when present.
 2. With `--cif auto/on` (default `off`), the cif is parsed **locally with ASE**
    (`structure_run_section()`) and embedded as an **inline top-level `run`
@@ -46,7 +46,7 @@ file from the upload) and builds the viewer from it — single source of truth.
 Concretely either:
 
 - fix/land `ElnWithStructureFile` (or an equivalent base section/normalizer) so an
-  entry can reference `cif_structure_<dataset>.cif` from the upload — the
+  entry can reference `<dataset>_structure.cif` from the upload — the
   nomad-FAIR issue #2250 direction; or
 - extend the `OptimadeNormalizer`/parser chain to parse raw `.cif` files present
   in the upload's raw files and populate `metadata.optimade` from them.
@@ -77,7 +77,7 @@ upstream report drafted). The workaround matches the nomad-FAIR#2250 direction
 ## Checklist when testing an upload
 
 - zip contains: `<dataset>.h5`, `<dataset>.archive.yaml`,
-  `cif_structure_<dataset>.cif` at the root, plus `datasets/<dataset>/...` raw
+  `<dataset>_structure.cif` at the root, plus `raw_datasets/<dataset>/...` raw
   tree and `packages/*.py`;
 - with `--cif on`: `.archive.yaml` has top-level `run` (atoms with lattice/
   positions in m) and `metadata: {domain: dft}`, and no `chemical_formula`;

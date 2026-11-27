@@ -391,7 +391,7 @@ def main():
         # every zip, so even a multi-zip upload (same-name raw files are
         # silently overwritten server-side) is harmless. The dataset-specific
         # names/values live in the entry's Data tab and in <name>.h5 /
-        # <name>.archive.yaml / datasets/<name>/ in this zip.
+        # <name>.archive.yaml / raw_datasets/<name>/ in this zip.
         general_readme = os.path.join(SCRIPT_DIR, "README_upload.md")
         if os.path.exists(general_readme):
             zipf.write(general_readme, arcname="README.md")
@@ -403,16 +403,18 @@ def main():
         # chemical_formula instead.
         cif_path = os.path.join(subfolder_path, "structure.cif")
         if os.path.isfile(cif_path):
-            zipf.write(cif_path, arcname=f"cif_structure_{subfolder}.cif")
+            # <name>_structure.cif so all per-dataset files sort together
+            # (<name>.archive.yaml, <name>.h5, <name>_structure.cif)
+            zipf.write(cif_path, arcname=f"{subfolder}_structure.cif")
 
-        # Add all content from the original source_dir to a 'datasets/[source_dir_name]' subfolder in the zip
+        # Add all content from the original source_dir to a 'raw_datasets/[source_dir_name]' subfolder in the zip
         for root, dirs, files in os.walk(subfolder_path):
             for file in files:
                 file_path = os.path.join(root, file)
                 # Calculate the relative path from the subfolder_path
                 relative_path = os.path.relpath(file_path, subfolder_path)
-                # Add the file to the 'datasets/[source_dir_name]' subfolder in the zip
-                arcname = os.path.join("datasets", subfolder, relative_path)
+                # Add the file to the 'raw_datasets/[source_dir_name]' subfolder in the zip
+                arcname = os.path.join("raw_datasets", subfolder, relative_path)
                 zipf.write(file_path, arcname=arcname)
 
         # Add only .py files from the packages subfolder to the zip
@@ -426,7 +428,7 @@ def main():
                         arcname = os.path.relpath(file_path, SCRIPT_DIR)
                         zipf.write(file_path, arcname=arcname)
     print(
-        f"Created {zip_filename} containing .h5, .yaml files, Jupyter notebook, all content from {subfolder} in 'datasets/{subfolder}' subfolder, and .py files from packages folder."
+        f"Created {zip_filename} containing .h5, .yaml files, Jupyter notebook, all content from {subfolder} in 'raw_datasets/{subfolder}' subfolder, and .py files from packages folder."
     )
 
 
